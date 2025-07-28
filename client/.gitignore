@@ -1,0 +1,12 @@
+node_modules
+.vite/
+# 忽略 Node.js 的依赖
+api/node_modules/
+client/node_modules/
+
+# 忽略环境变量配置（如果有）
+*.env
+
+# 忽略日志、临时文件
+*.logs
+.DS_Store
