@@ -3,6 +3,7 @@ import { db } from "../db.js";
 export const getTransactions = (req, res) => {
     const userId = req.user.id;//从 JWT token 中提取当前登录用户 ID
     const categoryId = req.query.category_id;// 从请求 URL 里提取参数，是查询参数前面要加？
+    const { ledger_id, min_amount, max_amount, type, start_date, end_date } = req.query;
     // ? "SELECT * FROM transactions WHERE category_id = ?"
     // : "SELECT * FROM transactions";
 
@@ -14,10 +15,36 @@ export const getTransactions = (req, res) => {
         userId_q += " AND category_id = ?";
         userId_params.push(categoryId);
     }
+    if (ledger_id) {
+        userId_q += " AND ledger_id = ?";
+        userId_params.push(ledger_id);
+    }
+    if (min_amount) {
+        userId_q += " AND amount >= ?";
+        userId_params.push(min_amount);
+    }
+    if (max_amount) {
+        userId_q += " AND amount <= ?";
+        userId_params.push(max_amount);
+    }
+    if (type) {
+        userId_q += " AND type = ?";
+        userId_params.push(type);
+    }
+    if (start_date) {
+        userId_q += " AND date >= ?";
+        userId_params.push(start_date);
+    }
+    if (end_date) {
+        userId_q += " AND date <= ?";
+        userId_params.push(end_date);
+    }
 
     db.query(userId_q, userId_params, (err, data) => {
         if (err) return res.status(500).send(err);
-
+        if (data.length === 0){
+            return res.status(404).json({ message: "No transactions found" });
+        }
         return res.status(200).json(data);
     })
     //db.query(SQL字符串里面有?占位,参数数组里有值用来依次替换SQL中的占位符?,callback回调函数)
