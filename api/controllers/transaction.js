@@ -1,46 +1,56 @@
 import { db } from "../db.js";
 
+//!分类和账本的名字展示
+//!直接在后端用 SQL JOIN 查询，把分类和账本的名字查出来，前端只管显示就行了，简单、清晰、高效，还符合 REST API 的风格。
+
 export const getTransactions = (req, res) => {
     const userId = req.user.id;//从 JWT token 中提取当前登录用户 ID
-    const categoryId = req.query.category_id;// 从请求 URL 里提取参数，是查询参数前面要加？
-    const { ledger_id, min_amount, max_amount, type, start_date, end_date } = req.query;
+    // const categoryId = req.query.category_id;// 从请求 URL 里提取参数，是查询参数前面要加？
+    const { category_id, ledger_id, min_amount, max_amount, type, start_date, end_date } = req.query;
     // ? "SELECT * FROM transactions WHERE category_id = ?"
     // : "SELECT * FROM transactions";
 
-    let userId_q = "SELECT * FROM transactions WHERE user_id = ?";
-    let userId_params = [userId];// 参数数组，表示 SQL 中的 ? 要被什么替代。这里是把第一个 ? 替换为用户 ID
+    // let userId_q = "SELECT * FROM transactions WHERE user_id = ?";
+    let query = `
+            SELECT t.id, t.amount, t.type, t.note, t.date,
+                c.name AS category_name, l.name AS ledger_name
+                FROM transactions t
+                JOIN categories c ON t.category_id = c.id
+                JOIN ledgers l ON t.ledger_id = l.id
+                WHERE t.user_id = ?`;
+    let params = [userId];// 参数数组，表示 SQL 中的 ? 要被什么替代。这里是把第一个 ? 替换为用户 ID
     //用let是因为后面修改这个变量了，let用来声明一个可变变量，const是声明一个不可变变量
 
-    if (categoryId) {
-        userId_q += " AND category_id = ?";
-        userId_params.push(categoryId);
+    if (category_id) {
+        query += " AND t.category_id = ?";
+        params.push(category_id);
     }
     if (ledger_id) {
-        userId_q += " AND ledger_id = ?";
-        userId_params.push(ledger_id);
+        query += " AND t.ledger_id = ?";
+        params.push(ledger_id);
     }
     if (min_amount) {
-        userId_q += " AND amount >= ?";
-        userId_params.push(min_amount);
+        query += " AND t.amount >= ?";
+        params.push(min_amount);
     }
     if (max_amount) {
-        userId_q += " AND amount <= ?";
-        userId_params.push(max_amount);
+        query += " AND t.amount <= ?";
+        params.push(max_amount);
     }
     if (type) {
-        userId_q += " AND type = ?";
-        userId_params.push(type);
+        query += " AND t.type = ?";
+        params.push(type);
     }
     if (start_date) {
-        userId_q += " AND date >= ?";
-        userId_params.push(start_date);
+        query += " AND t.date >= ?";
+        params.push(start_date);
     }
     if (end_date) {
-        userId_q += " AND date <= ?";
-        userId_params.push(end_date);
+        query += " AND t.date <= ?";
+        params.push(end_date);
     }
 
-    db.query(userId_q, userId_params, (err, data) => {
+    db.query(query, params, (err, data) => {
         if (err) return res.status(500).send(err);
         if (data.length === 0){
             return res.status(404).json({ message: "No transactions found" });
@@ -54,9 +64,15 @@ export const getTransaction = (req, res) => {
     const userId = req.user.id;
     const transactionsId = req.params.id;//路径参数，前面要加:
 
-    const q = "SELECT * FROM transactions WHERE id = ? AND user_id = ?";
+    // const q = "SELECT * FROM transactions WHERE id = ? AND user_id = ?";
+    const q =`SELECT t.id, t.amount, t.type, t.note, t.date,
+                c.name AS category_name, l.name AS leger_name
+                FROM transactions t
+                JOIN categories c ON t.category_id = c.id
+                JOIN ledgers l ON t.ledger_id = l.id
+                WHERE t.id = ? AND t.user_id = ?`;
     db.query(q, [transactionsId, userId], (err, data) => {
-        if (err) return res.status(500).send(err);
+        if (err) return res.status(500).json(err);
         if (data.length === 0) return res.status(404).json({ message: "Transaction not found" });
 
         return res.status(200).json(data[0]);
