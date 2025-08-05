@@ -5,7 +5,7 @@ import { db } from "../db.js";
 
 export const getTransactions = (req, res) => {
     const userId = req.user.id;//从 JWT token 中提取当前登录用户 ID
-    // const categoryId = req.query.category_id;// 从请求 URL 里提取参数，是查询参数前面要加？
+    //! const categoryId = req.query.category_id;// 从请求 URL 里提取参数，是查询参数前面要加？
     const { category_id, ledger_id, min_amount, max_amount, type, start_date, end_date } = req.query;
     // ? "SELECT * FROM transactions WHERE category_id = ?"
     // : "SELECT * FROM transactions";
