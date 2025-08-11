@@ -1,6 +1,6 @@
 import { db } from "../db.js";
 
-export const getLedgerMembers = (req, res) => {
+export const getLedgerMembers = async (req, res) => {
     // const userId = req.user.id;
     const ledgerId = req.params.ledgerId;
     // const memberId = req.params.memberId;
@@ -20,13 +20,15 @@ export const getLedgerMembers = (req, res) => {
         params.push(role);
     }
 
-    db.query(query, params, (err, data) => {
-        if (err) return res.status(500).send(err);
-        if (data.length === 0) {
+    try{
+        const [rows] = await db.query(query, params);
+        if (rows.length === 0) {
             return res.status(404).json({ message: "No Ledger Members found" });
         }
-        return res.status(200).json(data);
-    })
+        return res.status(200).json(rows);
+    }catch(err){
+        return res.status(500).send(err);
+    }
 }
 
 export const addLedgerMember = (req, res) => {
