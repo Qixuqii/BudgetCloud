@@ -1,7 +1,7 @@
 import express from 'express';
 import { verifyToken } from "../middleware/verifyToken.js";
 import { getLedgerMembers, addLedgerMember, deleteLedgerMember, updateLedgerMemberRole } from '../controllers/ledgerMember.js';
-import { checkLedgerRole } from '../middleware/CheckLedgerRole.js';
+import { checkLedgerRole } from '../middleware/checkLedgerRole.js';
 
 const router = express.Router();
 
@@ -11,3 +11,4 @@ router.delete('/:ledgerId/members/:memberId', verifyToken, checkLedgerRole(['own
 router.put('/:ledgerId/members/:memberId', verifyToken, checkLedgerRole(['owner']), updateLedgerMemberRole);
 
 export default router;
+
