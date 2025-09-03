@@ -36,8 +36,13 @@ export async function createLedgerWithOwner({ name, ownerId }) {
 export async function listLedgersByUser(userId) {
   const [rows] = await db.query(
     `
-    SELECT DISTINCT l.id, l.name, l.owner_id, l.created_at
+    SELECT DISTINCT l.id,
+           l.name,
+           l.owner_id,
+           u.username AS owner_name,
+           l.created_at
     FROM ledgers l
+    JOIN users u ON u.id = l.owner_id
     LEFT JOIN ledger_members m ON m.ledger_id = l.id
     WHERE l.owner_id = ? OR m.user_id = ?
     ORDER BY l.created_at DESC
@@ -52,13 +57,34 @@ export async function listLedgersByUser(userId) {
  */
 export async function getLedgerById(ledgerId, userId) {
   const [[ledger]] = await db.query(
-    "SELECT id, name, owner_id, created_at FROM ledgers WHERE id = ?",
+    `
+    SELECT l.id,
+           l.name,
+           l.owner_id,
+           u.username AS owner_name,
+           l.created_at
+    FROM ledgers l
+    JOIN users u ON u.id = l.owner_id
+    WHERE l.id = ?
+    `,
     [ledgerId]
   );
   if (!ledger) return null;
 
-  const [[memberCount]] = await db.query(
-    "SELECT COUNT(*) AS cnt FROM ledger_members WHERE ledger_id = ?",
+  // Fetch member list with usernames for this ledger
+  const [members] = await db.query(
+    `
+    SELECT m.id AS member_id,
+           m.user_id,
+           u.username,
+           u.email,
+           m.role,
+           m.joined_at
+    FROM ledger_members m
+    JOIN users u ON u.id = m.user_id
+    WHERE m.ledger_id = ?
+    ORDER BY u.username ASC
+    `,
     [ledgerId]
   );
 
@@ -73,7 +99,8 @@ export async function getLedgerById(ledgerId, userId) {
 
   return {
     ...ledger,
-    member_count: memberCount.cnt,
+    member_count: members.length,
+    members,
     accessible: !!membership,
   };
 }
