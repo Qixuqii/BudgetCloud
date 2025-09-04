@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import ledgerRoutes from "./routes/ledgers.js";
 import categoryRoutes from "./routes/categories.js";
 import aiSummaryRoutes from "./routes/aiSummaries.js";
+import ledgerBudgetRoutes from "./routes/ledgerBudgets.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use("/api/ledgers", ledgerMembers)
 app.use("/api/auth", authRouters)
 app.use("/api/users", userRouters)
 app.use("/api/ledgers", ledgerRoutes)
+app.use("/api/ledgers", ledgerBudgetRoutes)
 app.use("/api/categories", categoryRoutes);
 app.use("/api/ledgers", aiSummaryRoutes);
 app.listen(8800, () => {
