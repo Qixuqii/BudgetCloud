@@ -29,10 +29,11 @@ http.interceptors.response.use(function (response) {
     // 超出 2xx 范围的状态码都会触发该函数。
     // 对响应错误做点什么
     const status = error.response ? error.response.status : null;
-    if (status === 401 || status === 403) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        // alert('restart login because of token invalid');
+    // Only force re-login on 401 (unauthenticated). 403 can be a valid
+    // authorization failure (e.g., not owner) and should not log user out.
+    if (status === 401) {
+      try { localStorage.removeItem('token'); } catch {}
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

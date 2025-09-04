@@ -33,21 +33,38 @@ export async function createLedgerWithOwner({ name, ownerId }) {
 /**
  * 按用户查询其可见账本
  */
-export async function listLedgersByUser(userId) {
+export async function listLedgersByUser(userId, period) {
+  // Normalize period to YYYY-MM; default to current month
+  const p = (() => {
+    if (period && /^\d{4}-\d{2}$/.test(period)) return period;
+    return new Date().toISOString().slice(0, 7);
+  })();
+
   const [rows] = await db.query(
     `
-    SELECT DISTINCT l.id,
-           l.name,
-           l.owner_id,
-           u.username AS owner_name,
-           l.created_at
+    SELECT 
+      l.id,
+      l.name,
+      l.owner_id,
+      u.username AS owner_name,
+      l.created_at,
+      CAST(COALESCE(SUM(bl.limit_amt), 0) AS DOUBLE) AS totalBudget,
+      ? AS durationText,
+      CASE WHEN l.owner_id = ? THEN 'owner' ELSE COALESCE(m.role, 'viewer') END AS myRole
     FROM ledgers l
     JOIN users u ON u.id = l.owner_id
-    LEFT JOIN ledger_members m ON m.ledger_id = l.id
-    WHERE l.owner_id = ? OR m.user_id = ?
+    /* bind membership only for current user to avoid duplicates */
+    LEFT JOIN ledger_members m ON m.ledger_id = l.id AND m.user_id = ?
+    /* Budget period for the requested month */
+    LEFT JOIN budget_periods bp 
+      ON bp.ledger_id = l.id 
+     AND DATE_FORMAT(bp.start_date, '%Y-%m') = ?
+    LEFT JOIN budget_limits bl ON bl.period_id = bp.id
+    WHERE l.owner_id = ? OR m.user_id IS NOT NULL
+    GROUP BY l.id, l.name, l.owner_id, owner_name, l.created_at
     ORDER BY l.created_at DESC
     `,
-    [userId, userId]
+    [p, userId, userId, p, userId]
   );
   return rows;
 }

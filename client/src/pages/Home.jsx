@@ -17,11 +17,11 @@ const Home = () => {
         <Title>Welcome</Title>
         <Text>Now using Tremor + Tailwind.</Text>
       </Card>
-      {list.map((item) => (
+      {/* {list.map((item) => (
         <div key={item.id}>
           {item.id} - {item.amount} - {item.type}
         </div>
-      ))}
+      ))} */}
     </div>
   );
 };

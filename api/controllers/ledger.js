@@ -24,7 +24,8 @@ export async function createLedger(req, res) {
 
 export async function listMyLedgers(req, res) {
   try {
-    const rows = await listLedgersByUser(req.user.id);
+    const { period } = req.query || {};
+    const rows = await listLedgersByUser(req.user.id, period);
     return res.json(rows);
   } catch (e) {
     console.error(e);

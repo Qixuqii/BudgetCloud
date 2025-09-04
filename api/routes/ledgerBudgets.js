@@ -11,10 +11,10 @@ const router = express.Router();
 router.get('/:ledgerId/budgets', verifyToken, checkLedgerRole(), listBudgetsWithProgress);
 
 // Set or update a budget for a category in a ledger (only owner)
-router.put('/:ledgerId/budgets/:categoryId', verifyToken, checkLedgerRole(['owner']), setCategoryBudget);
+// Allow owners and editors to set budgets
+router.put('/:ledgerId/budgets/:categoryId', verifyToken, checkLedgerRole(['owner','editor']), setCategoryBudget);
 
 // Delete budget for category
-router.delete('/:ledgerId/budgets/:categoryId', verifyToken, checkLedgerRole(['owner']), removeCategoryBudget);
+router.delete('/:ledgerId/budgets/:categoryId', verifyToken, checkLedgerRole(['owner','editor']), removeCategoryBudget);
 
 export default router;
-
