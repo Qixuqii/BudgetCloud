@@ -14,7 +14,8 @@ import {
   loadLedgers,
 } from "../features/ledger/ledgerSlice";
 import { AuthContext } from "../context/authContext.jsx";
-import { transferOwner, leaveLedger } from "../services/ledgers";
+import { transferOwner } from "../services/ledgers";
+import { leaveLedgerAction } from "../features/ledger/ledgerSlice";
 
 export default function LedgerSettings() {
   const dispatch = useDispatch();
@@ -86,10 +87,17 @@ export default function LedgerSettings() {
   };
 
   const handleRename = async () => {
-    if (!name?.trim()) return;
+    if (!name?.trim()) {
+      window.alert('Name cannot be empty');
+      return;
+    }
     await dispatch(
       saveLedger({ id: effectiveLedgerId, changes: { name: name.trim() } })
     );
+    // Show success popup in English, then go back to list and refresh
+    window.alert('Rename successful');
+    await dispatch(loadLedgers());
+    navigate('/ledgers');
   };
 
   const handleDelete = async () => {
@@ -111,7 +119,9 @@ export default function LedgerSettings() {
       setShowTransfer(true);
       return;
     }
-    await leaveLedger(effectiveLedgerId);
+    // Optimistic update: remove from list and clear current
+    await dispatch(leaveLedgerAction(effectiveLedgerId));
+    // Refresh list from server to ensure consistency
     await dispatch(loadLedgers());
     navigate("/ledgers");
   };
@@ -120,6 +130,8 @@ export default function LedgerSettings() {
     if (!newOwnerMemberId) return;
     await transferOwner(effectiveLedgerId, Number(newOwnerMemberId));
     setShowTransfer(false);
+    // After transferring, leave this ledger as well
+    await dispatch(leaveLedgerAction(effectiveLedgerId));
     await dispatch(loadLedgers());
     navigate("/ledgers");
   };
@@ -308,4 +320,3 @@ export default function LedgerSettings() {
     </>
   );
 }
-

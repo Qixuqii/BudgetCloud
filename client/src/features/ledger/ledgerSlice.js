@@ -47,6 +47,15 @@ export const removeLedger = createAsyncThunk(
   }
 );
 
+// 退出账本（非所有者）
+export const leaveLedgerAction = createAsyncThunk(
+  'ledger/leaveLedger',
+  async (id) => {
+    await api.leaveLedger(id);
+    return id;
+  }
+);
+
 // 成员管理
 export const loadMembers = createAsyncThunk('ledger/loadMembers', api.fetchMembers);
 export const inviteLedgerMember = createAsyncThunk(
@@ -126,6 +135,15 @@ const ledgerSlice = createSlice({
 
       // 5. 删除/退出账本
       .addCase(removeLedger.fulfilled, (state, action) => {
+        state.items = state.items.filter(l => l.id !== action.payload);
+        if (state.currentId === action.payload) {
+          state.currentId = null;
+          state.current = null;
+          storage.remove('currentLedgerId');
+        }
+      })
+      .addCase(leaveLedgerAction.fulfilled, (state, action) => {
+        // 从本地列表移除该账本，并清除当前选择
         state.items = state.items.filter(l => l.id !== action.payload);
         if (state.currentId === action.payload) {
           state.currentId = null;

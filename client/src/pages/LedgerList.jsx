@@ -5,7 +5,9 @@ import {
   loadLedgers,
   setCurrentLedger,
   selectLedgers,
+  removeLedger,
 } from "../features/ledger/ledgerSlice";
+import { leaveLedgerAction } from "../features/ledger/ledgerSlice";
 import { fetchLedgerDetail } from "../services/ledgers";
 import DualBudgetBar from "../components/DualBudgetBar";
 import BudgetAnalysisTable from "../components/BudgetAnalysisTable";
@@ -36,6 +38,16 @@ export default function LedgerList() {
         // swallow for now; you may add toast
       }
     }
+  };
+
+  const handleDelete = async (id) => {
+    await dispatch(removeLedger(id));
+    await dispatch(loadLedgers());
+  };
+
+  const handleLeave = async (id) => {
+    await dispatch(leaveLedgerAction(id));
+    await dispatch(loadLedgers());
   };
 
   return (

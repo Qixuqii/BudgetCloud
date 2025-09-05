@@ -131,13 +131,19 @@ export const transferOwnershipAndRemoveCurrent = async (ledgerId, currentOwnerUs
 
     // Verify new owner member exists
     const [[target]] = await conn.query(
-      `SELECT id FROM ledger_members WHERE ledger_id = ? AND id = ? FOR UPDATE`,
+      `SELECT id, user_id FROM ledger_members WHERE ledger_id = ? AND id = ? FOR UPDATE`,
       [ledgerId, newOwnerMemberId]
     );
     if (!target) {
       await conn.rollback();
       return { ok: false, reason: 'TARGET_NOT_FOUND' };
     }
+
+    // Update ledgers.owner_id to the new owner's user_id so list queries reflect transfer
+    await conn.query(
+      `UPDATE ledgers SET owner_id = ? WHERE id = ?`,
+      [target.user_id, ledgerId]
+    );
 
     // Make target the sole owner
     await conn.query(
