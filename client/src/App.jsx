@@ -16,6 +16,8 @@ import LedgerList from "./pages/LedgerList";
 import "./style.scss";
 import LedgerDetail from "./pages/ledgerDetail";
 import LedgerSettings from "./pages/ledgerSettings";
+import CreateBudget from "./pages/CreateBudget";
+import EditBudget from "./pages/EditBudget";
 
 const Layout = () => {
   return (
@@ -45,6 +47,8 @@ const router = createBrowserRouter([
         element: <Write />,
       },
       { path: "/ledgers", element: <LedgerList /> },
+      { path: "/ledgers/new", element: <CreateBudget /> },
+      { path: "/ledgers/:id/edit", element: <EditBudget /> },
       { path: "/ledgers/:id", element: <LedgerDetail /> },
       { path: "/ledgers/:id/settings", element: <LedgerSettings /> },
     ],

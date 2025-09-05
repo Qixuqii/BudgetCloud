@@ -193,7 +193,7 @@ export default function LedgerDetail() {
     );
   }
 
-  const { name, totals = {}, categories = [], aiSummary } = ledger;
+  const { name, periodTitle, totals = {}, categories = [], aiSummary } = ledger;
   const { budget = 0, spent = 0 } = totals;
 
   return (
@@ -205,6 +205,9 @@ export default function LedgerDetail() {
             Budget (Spending Limit)
           </h1>
           <div className="mt-4 text-lg font-medium text-gray-900">{name}</div>
+          {periodTitle && (
+            <div className="mt-1 text-sm text-gray-600">{periodTitle}</div>
+          )}
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{periodText}</div>

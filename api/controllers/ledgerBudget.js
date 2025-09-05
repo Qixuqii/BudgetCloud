@@ -1,4 +1,4 @@
-import { getBudgetsWithProgress, upsertCategoryBudget } from "../dao/ledgerBudgetDao.js";
+import { getBudgetsWithProgress, upsertCategoryBudget, getPeriodMeta, upsertBudgetPeriodTitle } from "../dao/ledgerBudgetDao.js";
 
 // GET /api/ledgers/:ledgerId/budgets?period=YYYY-MM
 export async function listBudgetsWithProgress(req, res) {
@@ -7,7 +7,8 @@ export async function listBudgetsWithProgress(req, res) {
     const ledgerId = Number(req.params.ledgerId);
     const { period } = req.query;
     const rows = await getBudgetsWithProgress(userId, ledgerId, period);
-    return res.json({ period: period || new Date().toISOString().slice(0, 7), items: rows });
+    const meta = await getPeriodMeta(ledgerId, period || new Date().toISOString().slice(0, 7));
+    return res.json({ period: period || new Date().toISOString().slice(0, 7), title: meta?.title || null, items: rows });
   } catch (e) {
     if (String(e.message || "").includes("Invalid period")) {
       return res.status(400).json({ message: e.message });
@@ -66,5 +67,21 @@ export async function removeCategoryBudget(req, res) {
   } catch (e) {
     console.error("removeCategoryBudget error:", e);
     return res.status(500).json({ message: "Failed to delete budget" });
+  }
+}
+
+// PATCH /api/ledgers/:ledgerId/budgets/period  body: { period?:YYYY-MM, title?:string }
+export async function updateBudgetPeriodMeta(req, res) {
+  try {
+    const ledgerId = Number(req.params.ledgerId);
+    const { period, title } = req.body || {};
+    const rst = await upsertBudgetPeriodTitle({ ledgerId, period, title });
+    return res.json({ ok: true, id: rst.id });
+  } catch (e) {
+    if (String(e.message || "").includes("Invalid period")) {
+      return res.status(400).json({ message: e.message });
+    }
+    console.error("updateBudgetPeriodMeta error:", e);
+    return res.status(500).json({ message: "Failed to update period" });
   }
 }

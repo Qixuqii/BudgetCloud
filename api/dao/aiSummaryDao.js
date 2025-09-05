@@ -8,7 +8,7 @@ import { db } from "../db.js";
  */
 export async function getMonthlySummary(ledgerId, month) {
   const [rows] = await db.query(
-    `SELECT id, ledger_id, month, content, model, created_at, updated_at
+    `SELECT id, ledger_id, month, summary_text, model, created_at, updated_at
      FROM ai_summaries
      WHERE ledger_id = ? AND month = ?`,
     [ledgerId, month]

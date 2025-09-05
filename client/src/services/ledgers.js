@@ -33,6 +33,16 @@ export const transferOwner = (id, newOwnerMemberId) =>
 export const leaveLedger = (id) =>
   http.post(`/ledgers/${id}/leave`).then(res => res.data);
 
+// 8. 设置分类预算（当月），仅用于创建时批量写入
+export const setCategoryBudget = (ledgerId, categoryId, amount, period) =>
+  http.put(`/ledgers/${ledgerId}/budgets/${categoryId}`, { amount }, { params: period ? { period } : undefined }).then(res => res.data);
+
+export const removeCategoryBudget = (ledgerId, categoryId, period) =>
+  http.delete(`/ledgers/${ledgerId}/budgets/${categoryId}`, { params: period ? { period } : undefined }).then(res => res.data);
+
+export const updateBudgetPeriod = (ledgerId, { period, title }) =>
+  http.patch(`/ledgers/${ledgerId}/budgets/period`, { period, title }).then(res => res.data);
+
 // 7. 账本详情（聚合基础信息 + 当月预算进度 + AI 总结）
 export const fetchLedgerDetail = async (id, period) => {
   // 默认当前月 YYYY-MM
@@ -48,7 +58,7 @@ export const fetchLedgerDetail = async (id, period) => {
   ]);
 
   const base = baseRes.data || {};
-  const budgetData = budgetRes.data || { period: p, items: [] };
+  const budgetData = budgetRes.data || { period: p, items: [], title: null };
   const ai = aiRes && aiRes.data ? aiRes.data : null;
 
   // 将 budgets.items 适配前端需要的 categories 结构
@@ -82,6 +92,7 @@ export const fetchLedgerDetail = async (id, period) => {
     id: base.id,
     name: base.name,
     period: periodObj,
+    periodTitle: budgetData.title || null,
     totals,
     categories,
     aiSummary: ai ? ai.summary_text : null,
