@@ -43,6 +43,10 @@ export const removeCategoryBudget = (ledgerId, categoryId, period) =>
 export const updateBudgetPeriod = (ledgerId, { period, title }) =>
   http.patch(`/ledgers/${ledgerId}/budgets/period`, { period, title }).then(res => res.data);
 
+// Fetch budgets list for a ledger + period
+export const fetchBudgets = (ledgerId, period) =>
+  http.get(`/ledgers/${ledgerId}/budgets`, { params: period ? { period } : undefined }).then(res => res.data);
+
 // 7. 账本详情（聚合基础信息 + 当月预算进度 + AI 总结）
 export const fetchLedgerDetail = async (id, period) => {
   // 默认当前月 YYYY-MM
@@ -51,15 +55,14 @@ export const fetchLedgerDetail = async (id, period) => {
     : new Date().toISOString().slice(0, 7);
 
   // 并发请求：基础信息、预算进度、AI 总结
-  const [baseRes, budgetRes, aiRes] = await Promise.all([
+  const [baseRes, budgetRes] = await Promise.all([
     http.get(`/ledgers/${id}`),
     http.get(`/ledgers/${id}/budgets`, { params: { period: p } }),
-    http.get(`/ledgers/${id}/summaries/${p}`).catch(() => ({ data: null })),
   ]);
 
   const base = baseRes.data || {};
   const budgetData = budgetRes.data || { period: p, items: [], title: null };
-  const ai = aiRes && aiRes.data ? aiRes.data : null;
+  const ai = null; // disable AI summary fetch to avoid noisy 500s
 
   // 将 budgets.items 适配前端需要的 categories 结构
   const categories = (budgetData.items || []).map((r) => ({

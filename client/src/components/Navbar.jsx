@@ -20,7 +20,7 @@ const Navbar = () => {
             <h6>Dashboard</h6>
             {/* ART */}
           </Link>
-          <Link className="link" to="/?cat=Expense">
+          <Link className="link" to="/expenses">
             <h6>Expense</h6>
           </Link>
           <Link className="link" to="/incomes">

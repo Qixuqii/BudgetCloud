@@ -21,6 +21,9 @@ import EditBudget from "./pages/EditBudget";
 import Incomes from "./pages/Incomes";
 import AddIncome from "./pages/AddIncome";
 import EditIncome from "./pages/EditIncome";
+import Expenses from "./pages/Expenses";
+import AddExpense from "./pages/AddExpense";
+import EditExpense from "./pages/EditExpense";
 
 const Layout = () => {
   return (
@@ -57,6 +60,9 @@ const router = createBrowserRouter([
       { path: "/incomes", element: <Incomes /> },
       { path: "/incomes/new", element: <AddIncome /> },
       { path: "/incomes/:id/edit", element: <EditIncome /> },
+      { path: "/expenses", element: <Expenses /> },
+      { path: "/expenses/new", element: <AddExpense /> },
+      { path: "/expenses/:id/edit", element: <EditExpense /> },
     ],
   },
   {

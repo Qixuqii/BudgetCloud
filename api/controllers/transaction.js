@@ -1,10 +1,11 @@
 import { findTransactions, findTransactionById, insertTransaction, removeTransaction, updateTransactionById } from "../dao/transactionDao.js";
+import { db } from "../db.js";
 
 export const getTransactions = async (req, res) => {
   try {
     const rows = await findTransactions(req.user.id, req.query);
-    if (rows.length === 0) return res.status(404).json({ message: "No transactions found" });
-    return res.status(200).json(rows);
+    // 返回 200 + 空数组，避免前端频繁看到 404
+    return res.status(200).json(rows || []);
   } catch (err) {
     return res.status(500).json({ message: "Database error", error: err });
   }
@@ -32,6 +33,18 @@ export const addTransaction = async (req, res) => {
   }
 
   try {
+    // Enforce role: only owner/editor of the target ledger can add transactions
+    const [[roleRow]] = await db.query(
+      `SELECT role FROM ledger_members WHERE ledger_id = ? AND user_id = ?`,
+      [ledger_id, userId]
+    );
+    if (!roleRow) {
+      return res.status(403).json({ message: "User is not a member of this ledger" });
+    }
+    if (!['owner', 'editor'].includes(roleRow.role)) {
+      return res.status(403).json({ message: "Viewer cannot add transactions to this ledger" });
+    }
+
     const result = await insertTransaction(userId, { ledger_id, category_id, amount, type, note, date });
     return res.status(201).json({ message: "Transaction added successfully", transaction_id: result.insertId });
   } catch (err) {

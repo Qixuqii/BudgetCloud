@@ -4,7 +4,7 @@ import { selectCurrentLedgerId, loadLedgers, setCurrentLedger, selectLedgers } f
 import { fetchTransactions, deleteTransaction } from '../services/transactions';
 import { useNavigate } from 'react-router-dom';
 
-export default function Incomes() {
+export default function Expenses() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const currentLedgerId = useSelector(selectCurrentLedgerId);
@@ -15,7 +15,7 @@ export default function Incomes() {
   const load = async () => {
     setLoading(true);
     try {
-      const params = { type: 'income' };
+      const params = { type: 'expense' };
       if (currentLedgerId) params.ledger_id = currentLedgerId;
       const rows = await fetchTransactions(params);
       setItems(rows || []);
@@ -38,8 +38,8 @@ export default function Incomes() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <div className="text-sm text-gray-500">Income</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Incomes</h1>
+          <div className="text-sm text-gray-500">Expense</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -54,12 +54,12 @@ export default function Incomes() {
             ))}
           </select>
           <button
-            onClick={() => navigate('/incomes/new')}
+            onClick={() => navigate('/expenses/new')}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 disabled:opacity-50"
             disabled={!currentLedgerId || (ledgers.find(l=>l.id===currentLedgerId)?.myRole === 'viewer')}
-            title={(!currentLedgerId ? 'Select a budget first' : (ledgers.find(l=>l.id===currentLedgerId)?.myRole==='viewer' ? 'Viewer cannot add incomes' : 'Add income'))}
+            title={(!currentLedgerId ? 'Select a budget first' : (ledgers.find(l=>l.id===currentLedgerId)?.myRole==='viewer' ? 'Viewer cannot add expenses' : 'Add expense'))}
           >
-            + Add Income
+            + Add Expense
           </button>
         </div>
       </div>
@@ -67,16 +67,16 @@ export default function Incomes() {
       {loading ? (
         <div className="text-gray-500">Loading…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-8 text-center text-gray-500">No incomes yet.</div>
+        <div className="rounded-2xl border border-dashed p-8 text-center text-gray-500">No expenses yet.</div>
       ) : (
         <ul className="space-y-4">
           {items.map((t) => (
             <li key={t.id} className="flex items-start justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">💵</div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">💳</div>
                 <div>
-                  <div className="text-sm text-gray-500">{t.category_name || 'Income'} · {t.ledger_name || ''}</div>
-                  <div className="text-xl font-semibold text-gray-900">{t.note || 'Salary'}</div>
+                  <div className="text-sm text-gray-500">{t.category_name || 'Expense'} · {t.ledger_name || ''}</div>
+                  <div className="text-xl font-semibold text-gray-900">{t.note || 'Spending'}</div>
                   <div className="mt-2 grid grid-cols-2 gap-6 text-sm text-gray-700">
                     <div>
                       <div className="text-gray-500">Amount</div>
@@ -91,7 +91,7 @@ export default function Incomes() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => navigate(`/incomes/${t.id}/edit`)}
+                  onClick={() => navigate(`/expenses/${t.id}/edit`)}
                   className="rounded-full bg-indigo-50 p-2 text-indigo-600 hover:bg-indigo-100"
                   title="Edit"
                 >✏️</button>
