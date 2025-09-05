@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { useNavigate, useParams } from 'react-router-dom';
+import { selectCurrentLedgerId } from '../features/ledger/ledgerSlice';
+import { fetchCategories, createCategory } from '../services/categories';
+import { fetchTransaction, updateTransaction, deleteTransaction } from '../services/transactions';
+
+const presetIncomeCategories = [
+  'Salary',
+  'Bonus',
+  'Investment',
+  'Gift',
+  'Refund',
+  'Other',
+];
+
+export default function EditIncome() {
+  const { id } = useParams();
+  const txId = Number(id);
+  const navigate = useNavigate();
+  const currentLedgerId = useSelector(selectCurrentLedgerId);
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [tag, setTag] = useState('');
+  const [date, setDate] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState('');
+  const [customName, setCustomName] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let rows = await fetchCategories('income');
+        if (!rows || rows.length === 0) {
+          await Promise.allSettled(
+            presetIncomeCategories.map((name) => createCategory({ name, type: 'income' }))
+          );
+          rows = await fetchCategories('income');
+        }
+        setCategories(rows || []);
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const tx = await fetchTransaction(txId);
+        setAmount(String(tx.amount || ''));
+        setDate(tx.date?.slice(0,10) || new Date().toISOString().slice(0,10));
+        setCategoryId(tx.category_id || '');
+        // Split note into title/description/tag if possible
+        const note = tx.note || '';
+        const parts = note.split(' - ');
+        if (parts.length > 0) setTitle(parts[0] || '');
+        if (parts.length > 1) setDescription(parts[1] || '');
+        if (parts.length > 2) setTag(parts[2]?.replace(/^#/, '') || '');
+      } catch {}
+    })();
+  }, [txId]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentLedgerId) {
+      window.alert('Please select a budget first');
+      navigate('/ledgers');
+      return;
+    }
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      window.alert('Amount must be greater than 0');
+      return;
+    }
+    try {
+      let cid = categoryId;
+      if (cid === 'NEW') {
+        if (!customName.trim()) {
+          window.alert('Please enter a category name');
+          return;
+        }
+        const created = await createCategory({ name: customName.trim(), type: 'income' });
+        cid = created?.id;
+      }
+      const noteParts = [title.trim() || 'Income'];
+      if (description.trim()) noteParts.push(description.trim());
+      if (tag.trim()) noteParts.push(`#${tag.trim()}`);
+      await updateTransaction(txId, {
+        ledger_id: currentLedgerId,
+        category_id: Number(cid),
+        amount: amt,
+        type: 'income',
+        note: noteParts.join(' - '),
+        date,
+      });
+      window.alert('Income updated successfully');
+      navigate('/incomes');
+    } catch {
+      window.alert('Failed to update income');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this income?')) return;
+    try { await deleteTransaction(txId); navigate('/incomes'); } catch { window.alert('Delete failed'); }
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:max-w-4xl">
+      <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-7 shadow ring-1 ring-black/5">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-900">Edit Income</h1>
+          <button type="button" onClick={handleDelete} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700">Delete</button>
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Title</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Description</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full resize-none rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Amount</label>
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-3 text-sm text-gray-700">$</span>
+            <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Category</label>
+          {categoryId === 'NEW' ? (
+            <input className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm" placeholder="New category name" value={customName} onChange={(e) => setCustomName(e.target.value)} />
+          ) : (
+            <select className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm" value={categoryId} onChange={(e) => setCategoryId(e.target.value === 'NEW' ? 'NEW' : Number(e.target.value))}>
+              {categories.length === 0 && <option value="">No categories</option>}
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value="NEW">Custom...</option>
+            </select>
+          )}
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Tag</label>
+          <input value={tag} onChange={(e) => setTag(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm" placeholder="Tag (optional)" />
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-xs text-gray-600">Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+
+        <button type="submit" className="mt-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700">Update</button>
+      </form>
+    </div>
+  );
+}
+

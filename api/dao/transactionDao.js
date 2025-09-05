@@ -4,6 +4,7 @@ import { db } from "../db.js";
 export const findTransactions = async (userId, filters) => {
   let query = `
     SELECT t.id, t.amount, t.type, t.note, t.date,
+           t.category_id, t.ledger_id,
            c.name AS category_name, l.name AS ledger_name
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
@@ -48,6 +49,7 @@ export const findTransactions = async (userId, filters) => {
 export const findTransactionById = async (userId, id) => {
   const q = `
     SELECT t.id, t.amount, t.type, t.note, t.date,
+           t.category_id, t.ledger_id,
            c.name AS category_name, l.name AS ledger_name
     FROM transactions t
     JOIN categories c ON t.category_id = c.id

@@ -23,7 +23,7 @@ const Navbar = () => {
           <Link className="link" to="/?cat=Expense">
             <h6>Expense</h6>
           </Link>
-          <Link className="link" to="/?cat=Income">
+          <Link className="link" to="/incomes">
             <h6>Income</h6>
           </Link>
           <Link className="link" to="/?cat=Category">

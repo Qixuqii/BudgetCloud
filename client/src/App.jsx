@@ -18,6 +18,9 @@ import LedgerDetail from "./pages/ledgerDetail";
 import LedgerSettings from "./pages/ledgerSettings";
 import CreateBudget from "./pages/CreateBudget";
 import EditBudget from "./pages/EditBudget";
+import Incomes from "./pages/Incomes";
+import AddIncome from "./pages/AddIncome";
+import EditIncome from "./pages/EditIncome";
 
 const Layout = () => {
   return (
@@ -51,6 +54,9 @@ const router = createBrowserRouter([
       { path: "/ledgers/:id/edit", element: <EditBudget /> },
       { path: "/ledgers/:id", element: <LedgerDetail /> },
       { path: "/ledgers/:id/settings", element: <LedgerSettings /> },
+      { path: "/incomes", element: <Incomes /> },
+      { path: "/incomes/new", element: <AddIncome /> },
+      { path: "/incomes/:id/edit", element: <EditIncome /> },
     ],
   },
   {
