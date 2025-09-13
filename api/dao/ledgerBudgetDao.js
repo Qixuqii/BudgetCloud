@@ -45,7 +45,8 @@ export async function getBudgetsWithProgress(userId, ledgerId, period) {
       c.name AS category_name,
       c.type AS category_type,
       COALESCE(SUM(bl.limit_amt), 0) AS budget_amount,
-      COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS spent_amount
+      COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS spent_amount,
+      COUNT(t.id) AS tx_count
     FROM budget_limits bl
     JOIN categories c ON bl.category_id = c.id
     LEFT JOIN transactions t
@@ -60,11 +61,21 @@ export async function getBudgetsWithProgress(userId, ledgerId, period) {
     [ledgerId, start, end, bp.id]
   );
 
-  return rows.map((r) => ({
-    ...r,
-    progress: r.budget_amount > 0 ? Number((r.spent_amount / r.budget_amount).toFixed(4)) : null,
-    remaining: r.budget_amount > 0 ? Number((r.budget_amount - r.spent_amount).toFixed(2)) : null,
-  }));
+  return rows.map((r) => {
+    const progress = r.budget_amount > 0 ? Number((r.spent_amount / r.budget_amount).toFixed(4)) : null;
+    const remaining = r.budget_amount > 0 ? Number((r.budget_amount - r.spent_amount).toFixed(2)) : null;
+    let status = null;
+    if (progress === null) {
+      status = 'no_budget';
+    } else if (progress < 0.8) {
+      status = 'on_track';
+    } else if (progress <= 1) {
+      status = 'at_risk';
+    } else {
+      status = 'over';
+    }
+    return { ...r, progress, remaining, status };
+  });
 }
 
 // 读取某月周期的元信息（id/title/start/end）
@@ -75,7 +86,18 @@ export async function getPeriodMeta(ledgerId, period) {
      WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
     [ledgerId, p]
   );
-  return row || null;
+  if (!row) return null;
+  const meta = { ...row };
+  try {
+    if (row.title && typeof row.title === 'string' && row.title.trim().startsWith('{')) {
+      const obj = JSON.parse(row.title);
+      if (obj && typeof obj === 'object') {
+        meta.title = obj.desc ?? obj.title ?? '';
+        if (obj.total != null) meta.total = Number(obj.total);
+      }
+    }
+  } catch {}
+  return meta;
 }
 
 // 插入或更新预算（仍然检查分类是否存在即可，不必限制 user_id）
@@ -121,7 +143,7 @@ export async function upsertCategoryBudget({ userId, ledgerId, categoryId, perio
 }
 
 // 更新或创建周期的标题（描述）
-export async function upsertBudgetPeriodTitle({ ledgerId, period, title }) {
+export async function upsertBudgetPeriodTitle({ ledgerId, period, title, totalBudget }) {
   const p = normalizePeriod(period);
   const { start, end } = getPeriodRange(p);
   const [[bp]] = await db.query(
@@ -129,15 +151,18 @@ export async function upsertBudgetPeriodTitle({ ledgerId, period, title }) {
     [ledgerId, `${p}-01`, end]
   );
   let periodId = bp?.id;
+  const titleValue = (totalBudget != null)
+    ? JSON.stringify({ desc: title || `${p} 月度预算`, total: Number(totalBudget) })
+    : (title || `${p} 月度预算`);
   if (!periodId) {
     const [res] = await db.query(
       `INSERT INTO budget_periods (ledger_id, title, start_date, end_date)
        VALUES (?, ?, ?, DATE_SUB(?, INTERVAL 1 DAY))`,
-      [ledgerId, title || `${p} 月度预算`, `${p}-01`, end]
+      [ledgerId, titleValue, `${p}-01`, end]
     );
     periodId = res.insertId;
   } else {
-    await db.query(`UPDATE budget_periods SET title = ? WHERE id = ?`, [title || `${p} 月度预算`, periodId]);
+    await db.query(`UPDATE budget_periods SET title = ? WHERE id = ?`, [titleValue, periodId]);
   }
   return { ok: true, id: periodId };
 }

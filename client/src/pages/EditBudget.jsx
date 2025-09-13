@@ -24,6 +24,7 @@ export default function EditBudget() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [month, setMonth] = useState(new Date().toISOString().slice(0,7));
+  const [totalBudget, setTotalBudget] = useState("");
   const [allCategories, setAllCategories] = useState([]); // [{id,name,type}]
   const [items, setItems] = useState([]); // [{id, categoryId|'NEW', newName?, amount}]
   const [initialCatAmounts, setInitialCatAmounts] = useState(new Map()); // Map<categoryId, amount>
@@ -47,6 +48,7 @@ export default function EditBudget() {
         const detail = await fetchLedgerDetail(ledgerId, period);
         setTitle(detail?.name || "");
         setDesc(detail?.periodTitle || "");
+        setTotalBudget(detail?.totals?.budget != null ? String(detail.totals.budget) : "");
         const rows = (detail?.categories || [])
           .filter((c) => Number(c.limit) > 0)
           .map((c, idx) => ({ id: idx + 1, categoryId: c.id, amount: String(c.limit) }));
@@ -94,9 +96,6 @@ export default function EditBudget() {
       // Update ledger name
       await dispatch(saveLedger({ id: ledgerId, changes: { name: title.trim() } })).unwrap();
 
-      // Update period meta (description/title)
-      await updateBudgetPeriod(ledgerId, { period, title: desc?.trim() || undefined });
-
       // Prepare budgets (create custom categories if any), aggregate by category
       const prepared = [];
       for (const it of items) {
@@ -113,6 +112,19 @@ export default function EditBudget() {
       }
       const byCat = new Map();
       for (const r of prepared) byCat.set(r.categoryId, (byCat.get(r.categoryId) || 0) + r.amount);
+
+      // Validate total budget > sum of category budgets
+      const sumCat = Array.from(byCat.values()).reduce((a,b)=>a+b,0);
+      const tot = Number(totalBudget);
+      if (Number.isFinite(tot) && tot > 0) {
+        if (sumCat > tot) {
+          window.alert('Total budget must be greater than sum of category budgets');
+          return;
+        }
+      }
+
+      // Update period meta (description/title + total budget if provided)
+      await updateBudgetPeriod(ledgerId, { period, title: desc?.trim() || undefined, totalBudget: Number.isFinite(tot) && tot>0 ? tot : undefined });
 
       // Compute deletions: in initial but not in new (or amount 0)
       const newIds = new Set(Array.from(byCat.keys()));
@@ -151,7 +163,7 @@ export default function EditBudget() {
         </div>
 
         {/* Period month + Description */}
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs text-gray-600">Month</label>
             <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
@@ -159,6 +171,10 @@ export default function EditBudget() {
           <div>
             <label className="mb-1 block text-xs text-gray-600">Description</label>
             <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Describe this month's plan" className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-600">Total Budget</label>
+            <input type="number" min="0" step="0.01" value={totalBudget} onChange={(e)=>setTotalBudget(e.target.value)} placeholder="Overall monthly budget" className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
         </div>
 

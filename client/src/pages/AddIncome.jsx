@@ -102,11 +102,15 @@ export default function AddIncome() {
           <h1 className="text-xl font-semibold text-gray-900">Add Income</h1>
           <select
             value={currentLedgerId || ''}
-            onChange={(e) => dispatch(setCurrentLedger(Number(e.target.value)))}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return; // prevent selecting placeholder
+              dispatch(setCurrentLedger(Number(v)));
+            }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             title="Select budget"
           >
-            <option value="">Select Budget</option>
+            <option value="" disabled>Select Budget</option>
             {ledgers.map((l) => (
               <option key={l.id} value={l.id}>{l.name} ({l.myRole || 'viewer'})</option>
             ))}

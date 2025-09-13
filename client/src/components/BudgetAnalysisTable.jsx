@@ -25,9 +25,16 @@ export default function BudgetAnalysisTable({ categories = [] }) {
           </thead>
           <tbody className="text-sm text-gray-800">
             {categories.map((c, idx) => {
-              const pct =
-                c.limit > 0 ? Math.min(100, (c.spent / c.limit) * 100) : 0;
-              const onTrack = pct <= 100;
+              const ratio = c.limit > 0 ? (c.spent / c.limit) : 0;
+              const pct = c.limit > 0 ? Math.min(100, ratio * 100) : 0;
+              const status = c.limit <= 0 ? 'No Budget' : (ratio < 0.8 ? 'On Track' : (ratio <= 1 ? 'At Risk' : 'Over'));
+              const badge = status === 'On Track'
+                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                : status === 'At Risk'
+                  ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                  : status === 'Over'
+                    ? 'bg-rose-50 text-rose-700 ring-rose-200'
+                    : 'bg-gray-50 text-gray-600 ring-gray-200';
               return (
                 <tr key={c.id || idx} className="border-t border-gray-200">
                   <td className="px-3 py-3">
@@ -46,15 +53,8 @@ export default function BudgetAnalysisTable({ categories = [] }) {
                   <td className="px-3 py-3">${fm(c.limit)}</td>
                   <td className="px-3 py-3">${fm(c.spent)}</td>
                   <td className="px-3 py-3">
-                    <span
-                      className={
-                        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 " +
-                        (onTrack
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                          : "bg-rose-50 text-rose-700 ring-rose-200")
-                      }
-                    >
-                      {onTrack ? "On Track" : "Over"}
+                    <span className={"inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 " + badge}>
+                      {status}
                     </span>
                   </td>
                 </tr>

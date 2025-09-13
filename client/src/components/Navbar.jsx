@@ -26,11 +26,11 @@ const Navbar = () => {
           <Link className="link" to="/incomes">
             <h6>Income</h6>
           </Link>
-          <Link className="link" to="/?cat=Category">
+          <Link className="link" to="/category">
             <h6>Category</h6>
           </Link>
-          <Link className="link" to="/?cat=Calender">
-            <h6>Calender</h6>
+          <Link className="link" to="/calendar">
+            <h6>Calendar</h6>
           </Link>
           <Link className="link" to="/ledgers">
             <h6>Budget</h6>

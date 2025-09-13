@@ -48,7 +48,17 @@ export async function listLedgersByUser(userId, period) {
       l.owner_id,
       u.username AS owner_name,
       l.created_at,
-      CAST(COALESCE(SUM(bl.limit_amt), 0) AS DOUBLE) AS totalBudget,
+      CAST(
+        COALESCE(
+          /* prefer JSON total in period title when valid */
+          NULLIF(
+            CASE WHEN JSON_VALID(bp.title) THEN JSON_UNQUOTE(JSON_EXTRACT(bp.title, '$.total')) ELSE NULL END,
+            ''
+          ),
+          SUM(bl.limit_amt),
+          0
+        ) AS DOUBLE
+      ) AS totalBudget,
       ? AS durationText,
       CASE WHEN l.owner_id = ? THEN 'owner' ELSE COALESCE(m.role, 'viewer') END AS myRole
     FROM ledgers l
@@ -61,7 +71,7 @@ export async function listLedgersByUser(userId, period) {
      AND DATE_FORMAT(bp.start_date, '%Y-%m') = ?
     LEFT JOIN budget_limits bl ON bl.period_id = bp.id
     WHERE l.owner_id = ? OR m.user_id IS NOT NULL
-    GROUP BY l.id, l.name, l.owner_id, owner_name, l.created_at
+    GROUP BY l.id, l.name, l.owner_id, owner_name, l.created_at, bp.title
     ORDER BY l.created_at DESC
     `,
     [p, userId, userId, p, userId]

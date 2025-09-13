@@ -23,7 +23,7 @@ export const getTransaction = async (req, res) => {
 
 export const addTransaction = async (req, res) => {
   const userId = req.user.id;
-  const { ledger_id, category_id, amount, type, note = "", date = new Date().toISOString().slice(0, 10) } = req.body;
+  const { ledger_id, category_id, amount, type, note = "", date = new Date().toISOString().slice(0, 10), allow_exceed = false } = req.body;
 
   if (!ledger_id || !category_id || !amount || !type) {
     return res.status(400).json({ message: "Must provide ledger_id, category_id, amount, and type" });
@@ -43,6 +43,48 @@ export const addTransaction = async (req, res) => {
     }
     if (!['owner', 'editor'].includes(roleRow.role)) {
       return res.status(403).json({ message: "Viewer cannot add transactions to this ledger" });
+    }
+
+    // Budget enforcement: for expenses, do not allow exceeding a defined category budget for the month
+    // unless the client explicitly allows exceed (manual confirmation by the user)
+    if (type === 'expense' && !allow_exceed) {
+      try {
+        const period = String(date).slice(0, 7); // YYYY-MM
+        // Find budget period for the ledger and month
+        const [[bp]] = await db.query(
+          `SELECT id, start_date, end_date FROM budget_periods WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
+          [ledger_id, period]
+        );
+        if (bp) {
+          // Get category limit (if any)
+          const [[lim]] = await db.query(
+            `SELECT limit_amt FROM budget_limits WHERE period_id = ? AND category_id = ?`,
+            [bp.id, category_id]
+          );
+          if (lim) {
+            const [[sumRow]] = await db.query(
+              `SELECT COALESCE(SUM(amount),0) AS spent
+               FROM transactions
+               WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
+                 AND date >= ? AND date <= ?`,
+              [userId, ledger_id, category_id, bp.start_date, bp.end_date]
+            );
+            const spent = Number(sumRow?.spent || 0);
+            const limitAmt = Number(lim.limit_amt || 0);
+            const nextSpent = spent + Number(amount);
+            if (limitAmt >= 0 && nextSpent > limitAmt) {
+              const remaining = Math.max(0, limitAmt - spent);
+              return res.status(409).json({
+                code: 'BUDGET_EXCEEDED',
+                message: 'Adding this expense would exceed the category budget for this period',
+                details: { limit: limitAmt, spent, remaining }
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // If budget check fails unexpectedly, fall through to allow insert to avoid blocking
+      }
     }
 
     const result = await insertTransaction(userId, { ledger_id, category_id, amount, type, note, date });
@@ -78,6 +120,51 @@ export const updateTransaction = async (req, res) => {
   }
 
   try {
+    // Optional enforcement on updates that could exceed budget
+    if (['ledger_id','category_id','amount','type','date'].some(k => fields[k] !== undefined)) {
+      const current = await findTransactionById(userId, transactionId);
+      if (current) {
+        const newLedger = fields.ledger_id ?? current.ledger_id;
+        const newCategory = fields.category_id ?? current.category_id;
+        const newAmount = Number(fields.amount ?? current.amount);
+        const newType = fields.type ?? current.type;
+        const newDate = String(fields.date ?? current.date);
+        if (newType === 'expense') {
+          try {
+            const period = newDate.slice(0,7);
+            const [[bp]] = await db.query(
+              `SELECT id, start_date, end_date FROM budget_periods WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
+              [newLedger, period]
+            );
+            if (bp) {
+              const [[lim]] = await db.query(
+                `SELECT limit_amt FROM budget_limits WHERE period_id = ? AND category_id = ?`,
+                [bp.id, newCategory]
+              );
+              if (lim) {
+                const [[sumRow]] = await db.query(
+                  `SELECT COALESCE(SUM(amount),0) AS spent
+                   FROM transactions
+                   WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
+                     AND date >= ? AND date <= ? AND id <> ?`,
+                  [userId, newLedger, newCategory, bp.start_date, bp.end_date, transactionId]
+                );
+                const spentExcl = Number(sumRow?.spent || 0);
+                const limitAmt = Number(lim.limit_amt || 0);
+                if (spentExcl + newAmount > limitAmt) {
+                  const remaining = Math.max(0, limitAmt - spentExcl);
+                  return res.status(409).json({
+                    code: 'BUDGET_EXCEEDED',
+                    message: 'Updating this expense would exceed the category budget for this period',
+                    details: { limit: limitAmt, spent: spentExcl, remaining }
+                  });
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+    }
     const result = await updateTransactionById(userId, transactionId, fields);
     if (result.affectedRows === 0) return res.status(404).json({ message: "Transaction not found or unauthorized" });
     return res.status(200).json({ message: "Transaction updated successfully" });

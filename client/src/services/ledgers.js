@@ -40,8 +40,8 @@ export const setCategoryBudget = (ledgerId, categoryId, amount, period) =>
 export const removeCategoryBudget = (ledgerId, categoryId, period) =>
   http.delete(`/ledgers/${ledgerId}/budgets/${categoryId}`, { params: period ? { period } : undefined }).then(res => res.data);
 
-export const updateBudgetPeriod = (ledgerId, { period, title }) =>
-  http.patch(`/ledgers/${ledgerId}/budgets/period`, { period, title }).then(res => res.data);
+export const updateBudgetPeriod = (ledgerId, { period, title, totalBudget }) =>
+  http.patch(`/ledgers/${ledgerId}/budgets/period`, { period, title, totalBudget }).then(res => res.data);
 
 // Fetch budgets list for a ledger + period
 export const fetchBudgets = (ledgerId, period) =>
@@ -61,7 +61,7 @@ export const fetchLedgerDetail = async (id, period) => {
   ]);
 
   const base = baseRes.data || {};
-  const budgetData = budgetRes.data || { period: p, items: [], title: null };
+  const budgetData = budgetRes.data || { period: p, items: [], title: null, total: null };
   const ai = null; // disable AI summary fetch to avoid noisy 500s
 
   // 将 budgets.items 适配前端需要的 categories 结构
@@ -79,6 +79,10 @@ export const fetchLedgerDetail = async (id, period) => {
     acc.spent += Number(c.spent || 0);
     return acc;
   }, { budget: 0, spent: 0 });
+  // If server provides a custom total (overall budget), prefer it
+  if (budgetData.total != null && Number.isFinite(Number(budgetData.total))) {
+    totals.budget = Number(budgetData.total);
+  }
 
   // 生成 period 的起止日期（用于 UI 文案）
   const [yy, mm] = p.split('-').map(Number);

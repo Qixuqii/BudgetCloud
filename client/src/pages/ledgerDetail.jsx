@@ -19,7 +19,9 @@ const clampPct = (n) => Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
 
 /* ------------------------ 组件：分类卡片 ------------------------ */
 function CategoryCard({ name, spent = 0, limit = 0, txCount = 0 }) {
-  const pct = limit > 0 ? clampPct((spent / limit) * 100) : 0;
+  const ratio = limit > 0 ? (spent / limit) : 0;
+  const pct = limit > 0 ? clampPct(ratio * 100) : 0;
+  const color = ratio <= 0.8 ? 'bg-emerald-500' : (ratio <= 1 ? 'bg-amber-500' : 'bg-rose-600');
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="mb-2 flex items-center gap-3">
@@ -33,15 +35,12 @@ function CategoryCard({ name, spent = 0, limit = 0, txCount = 0 }) {
       </div>
 
       <div className="text-sm text-gray-900">
-        {fmtMoney(spent)}{" "}
+        <span className={spent > limit && limit > 0 ? 'text-rose-600 font-medium' : ''}>{fmtMoney(spent)}</span>{" "}
         <span className="text-gray-500">/ {fmtMoney(limit)}</span>
       </div>
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-blue-600"
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -137,15 +136,14 @@ function BudgetAnalysisTable({ categories = [] }) {
 
 /* ------------------------ 组件：双色总进度条（底部） ------------------------ */
 function DualBudgetBar({ budget = 0, spending = 0 }) {
-  const pct = budget > 0 ? clampPct((spending / budget) * 100) : 0;
+  const ratio = budget > 0 ? (spending / budget) : 0;
+  const pct = budget > 0 ? clampPct(ratio * 100) : 0;
+  const color = ratio <= 0.8 ? 'bg-emerald-500' : (ratio <= 1 ? 'bg-amber-500' : 'bg-rose-500');
   return (
     <div className="mt-6 rounded-full bg-blue-700/95 p-2 shadow-lg">
       <div className="relative h-14 w-full overflow-hidden rounded-full bg-blue-700">
         {/* 左侧“已花”金色段 */}
-        <div
-          className="absolute left-0 top-0 h-full bg-amber-500"
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`absolute left-0 top-0 h-full ${color}`} style={{ width: `${pct}%` }} />
         {/* 中间/两端文案 */}
         <div className="relative z-10 grid h-full grid-cols-3 items-center text-white">
           <div className="pl-6 text-sm">Budget: {fmtMoneyRaw(budget)}</div>

@@ -24,6 +24,8 @@ export default function AddExpense() {
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState('');
   const [customName, setCustomName] = useState('');
+  // Over-budget confirmation modal state
+  const [overBudget, setOverBudget] = useState(null); // { limit, spent, remaining, payload }
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
   useEffect(() => {
@@ -63,31 +65,74 @@ export default function AddExpense() {
         const found = (data?.items || []).find(it => it.category_id === Number(cid));
         const hasBudget = found && Number(found.budget_amount) > 0;
         if (!hasBudget) {
-          const confirmAdd = window.confirm('This category has no budget in the selected budget. Add one now?');
-          if (confirmAdd) {
-            const input = window.prompt('Enter budget amount for this category:', '0');
-            const b = Number(input);
-            if (Number.isFinite(b) && b > 0) {
-              await setCategoryBudget(currentLedgerId, Number(cid), b, period);
-            }
+          const confirmAdd = window.confirm('No budget is set for this category in the selected budget. Create one now?');
+          if (!confirmAdd) { window.alert('Budget creation canceled'); return; }
+
+          const input = window.prompt('Enter a budget amount for this category (e.g., 100):', '0');
+          if (input === null) { window.alert('Budget creation canceled'); return; }
+
+          const b = Number(input);
+          if (!Number.isFinite(b) || b <= 0) { window.alert('Invalid amount. Budget creation canceled'); return; }
+
+          try {
+            await setCategoryBudget(currentLedgerId, Number(cid), b, period);
+          } catch {
+            window.alert('Failed to create budget');
+            return;
           }
         }
-      } catch {}
+      } catch {
+        // If budget lookup fails, proceed as before (do not block),
+        // but cancellation path above will still return early.
+      }
       const noteParts = [title.trim()];
       if (description.trim()) noteParts.push(description.trim());
       if (tag.trim()) noteParts.push(`#${tag.trim()}`);
-      await addTransaction({
+      const payload = {
         ledger_id: currentLedgerId,
         category_id: Number(cid),
         amount: amt,
         type: 'expense',
         note: noteParts.join(' - '),
         date,
-      });
+      };
+      await addTransaction(payload);
       window.alert('Expense added successfully');
       navigate('/expenses');
     } catch (err) {
+      const data = err?.response?.data;
+      if (data?.code === 'BUDGET_EXCEEDED') {
+        const r = data.details?.remaining;
+        const lim = data.details?.limit;
+        const spent = data.details?.spent;
+        // Save state for custom confirmation modal with english buttons
+        setOverBudget({ limit: lim, spent, remaining: r, payload: err?.config?.data ? JSON.parse(err.config.data) : null });
+      } else {
+        window.alert('Failed to add expense');
+      }
+    }
+  };
+
+  const handleConfirmCreateAnyway = async () => {
+    const p = overBudget?.payload;
+    // If we couldn't parse payload from error, rebuild from current form values
+    const fallback = {
+      ledger_id: currentLedgerId,
+      category_id: typeof categoryId === 'number' ? categoryId : Number(categoryId),
+      amount: Number(amount),
+      type: 'expense',
+      note: [title.trim() || 'Expense', description.trim()].filter(Boolean).join(' - ') + (tag.trim() ? ` - #${tag.trim()}` : ''),
+      date,
+    };
+    const retryPayload = { ...(p || fallback), allow_exceed: true };
+    try {
+      await addTransaction(retryPayload);
+      window.alert('Expense added successfully');
+      navigate('/expenses');
+    } catch {
       window.alert('Failed to add expense');
+    } finally {
+      setOverBudget(null);
     }
   };
 
@@ -98,11 +143,15 @@ export default function AddExpense() {
           <h1 className="text-xl font-semibold text-gray-900">Add Expense</h1>
           <select
             value={currentLedgerId || ''}
-            onChange={(e) => dispatch(setCurrentLedger(Number(e.target.value)))}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return; // prevent selecting placeholder
+              dispatch(setCurrentLedger(Number(v)));
+            }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             title="Select budget"
           >
-            <option value="">Select Budget</option>
+            <option value="" disabled>Select Budget</option>
             {ledgers.map((l) => (
               <option key={l.id} value={l.id}>{l.name} ({l.myRole || 'viewer'})</option>
             ))}
@@ -145,6 +194,35 @@ export default function AddExpense() {
         </div>
         <button type="submit" className="mt-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700">Submit</button>
       </form>
+
+      {overBudget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-md rounded-2xl bg-white p-6 shadow ring-1 ring-black/5">
+            <div className="mb-4 text-sm text-gray-700 whitespace-pre-line">
+              {`This expense exceeds the category budget.\n` +
+               `Limit: $${Number(overBudget.limit ?? 0).toFixed(2)}\n` +
+               `Spent: $${Number(overBudget.spent ?? 0).toFixed(2)}\n` +
+               `Remaining: $${Number(overBudget.remaining ?? 0).toFixed(2)}`}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setOverBudget(null)}
+              >
+                Cancel Creation
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={handleConfirmCreateAnyway}
+              >
+                Create Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
