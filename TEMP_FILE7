@@ -11,8 +11,6 @@ import { leaveLedgerAction } from "../features/ledger/ledgerSlice";
 import { fetchLedgerDetail } from "../services/ledgers";
 import DualBudgetBar from "../components/DualBudgetBar";
 import BudgetAnalysisTable from "../components/BudgetAnalysisTable";
-import Tag from "../components/Tag";
-import { formatDateEN } from "../utils/date";
 
 export default function LedgerList() {
   const dispatch = useDispatch();
@@ -66,7 +64,7 @@ export default function LedgerList() {
           onClick={() => navigate("/ledgers/new")}
           className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          <span className="text-lg leading-none">ï¼‹</span>
+          <span className="text-lg leading-none">ï¼?/span>
           Add Budget
         </button>
       </div>
@@ -112,7 +110,7 @@ export default function LedgerList() {
                   </div>
                   <div className="mt-0.5 text-xs text-gray-500">
                     {l.created_at ? (
-                      <>Created {formatDateEN(l.created_at)}</>
+                      <>Created {String(l.created_at||'').slice(0,10).replace(/-/g,'/')}</>
                     ) : (
                       <>No created date</>
                     )}
@@ -123,19 +121,25 @@ export default function LedgerList() {
                 <div className="sm:col-span-1">
                   <button
                     onClick={() => { dispatch(setCurrentLedger(l.id)); navigate(`/ledgers/${l.id}/settings`); }}
-                    title="Open settings"
-                  >
-                    <Tag color={l.myRole === 'owner' ? 'indigo' : l.myRole === 'editor' ? 'blue' : 'gray'}>
-                      {l.myRole || 'viewer'}
-                    </Tag>
-                  </button>
+                    className={
+                      "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 " +
+                      (l.myRole === 'owner'
+                        ? "bg-indigo-50 text-indigo-700 ring-indigo-200"
+                        : l.myRole === 'editor'
+                        ? "bg-blue-50 text-blue-700 ring-blue-200"
+                        : "bg-gray-50 text-gray-700 ring-gray-200")
+                    }
+                  title="Open settings"
+                >
+                  {l.myRole || 'viewer'}
+                </button>
                 </div>
 
                 {/* Budget */}
                 <div className="sm:col-span-2 text-sm text-gray-900">
                   {typeof l.totalBudget === "number"
                     ? `$${l.totalBudget}`
-                    : "â€”"}
+                    : "â€?}
                 </div>
 
                 {/* Duration (click to toggle inline analysis) */}
@@ -145,7 +149,7 @@ export default function LedgerList() {
                   className="sm:col-span-2 text-left text-sm text-gray-900 underline decoration-dotted underline-offset-2 hover:text-blue-600"
                   title="View inline analysis"
                 >
-                  {l.durationText || "â€”"}
+                  {l.durationText || "â€?}
                 </button>
 
                 {/* Status */}
@@ -170,7 +174,7 @@ export default function LedgerList() {
                     aria-label="Delete"
                     title="Delete"
                   >
-                    ğŸ—‘ï¸
+                    ğŸ—‘ï¸?
                   </button>
                 </div>
                 {/* Inline analysis panel */}
@@ -211,7 +215,7 @@ export default function LedgerList() {
               onClick={() => navigate("/ledgers/new")}
               className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <span className="text-lg leading-none">ï¼‹</span>
+              <span className="text-lg leading-none">ï¼?/span>
               Create Budget
             </button>
           </div>
@@ -220,3 +224,4 @@ export default function LedgerList() {
     </div>
   );
 }
+

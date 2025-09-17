@@ -53,8 +53,11 @@ export default function CategoryAnalytics() {
   const categoryOptions = byCategory.map(c => ({ id: String(c.id), name: c.name }));
   const selectedName = categoryOptions.find(o => o.id === String(selectedCat))?.name;
 
-  // 默认选择第一个有数据的分类，保证图表“有数据显示”
-  
+  // 默认选择第一个有数据的分类，保证图表“有数据显示�?  useEffect(() => {
+    if (!selectedCat && categoryOptions.length > 0) {
+      setSelectedCat(categoryOptions[0].id);
+    }
+  }, [categoryOptions, selectedCat]);
 
   function enumerateDates(s, e) {
     const res = [];
@@ -69,10 +72,11 @@ export default function CategoryAnalytics() {
   }
 
   const chartData = useMemo(() => {
-    // 汇总为“日总额”，并补齐无交易日期为 0，绘制连续趋势线
+    if (!selectedCat) return [];
+    // 汇总为“日总额”，并补齐无交易日期�?0，绘制连续趋势线
     const sums = new Map();
     for (const t of tx) {
-      if (selectedCat && String(t.category_id) !== String(selectedCat)) continue;
+      if (String(t.category_id) !== String(selectedCat)) continue;
       const day = (t.date || '').slice(0, 10);
       sums.set(day, (sums.get(day) || 0) + Number(t.amount || 0));
     }
@@ -87,7 +91,7 @@ export default function CategoryAnalytics() {
         <div className="flex items-center gap-2 text-sm">
           <span className="text-gray-600">Date Range</span>
           <input type="date" value={start} onChange={(e)=>setRange(r=>({ ...r, start: e.target.value }))} className="rounded-md border px-2 py-1" />
-          <span className="text-gray-500">–</span>
+          <span className="text-gray-500">�?/span>
           <input type="date" value={end} onChange={(e)=>setRange(r=>({ ...r, end: e.target.value }))} className="rounded-md border px-2 py-1" />
         </div>
         <div className="inline-flex overflow-hidden rounded-xl border">
@@ -119,7 +123,7 @@ export default function CategoryAnalytics() {
         ))}
         {byCategory.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-gray-500">
-            {loading ? 'Loading…' : 'No transactions in range'}
+            {loading ? 'Loading�? : 'No transactions in range'}
           </div>
         )}
       </div>
@@ -132,7 +136,7 @@ export default function CategoryAnalytics() {
           value={selectedCat}
           onChange={(e)=>setSelectedCat(e.target.value)}
         >
-          <option value="">All</option>
+          <option value="">Select category</option>
           {categoryOptions.map(opt => (
             <option key={opt.id} value={opt.id}>{opt.name}</option>
           ))}
@@ -141,7 +145,7 @@ export default function CategoryAnalytics() {
 
       <Card className="ring-1 ring-gray-200">
         {chartData.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">No transactions in range</div>
+          <div className="py-12 text-center text-gray-500">Select a category to see chart</div>
         ) : (
           <div className="p-2">
             <SmoothLineChart data={chartData} color="#2563eb" height={320} showPoints={true} />
@@ -151,3 +155,4 @@ export default function CategoryAnalytics() {
     </div>
   );
 }
+

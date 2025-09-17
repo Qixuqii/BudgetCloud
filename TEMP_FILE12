@@ -1,0 +1,113 @@
+import { useMemo, useRef, useState } from 'react';
+
+// Single-ring donut: only distinguish categories.
+// Each category arc size = income + expense total.
+// props: data: [{ name, income, expense }]
+export default function CombinedCategoryDonut({ data = [], size = 200, stroke = 20 }) {
+  const wrapperRef = useRef(null);
+  const [hover, setHover] = useState(null); // { name, total, color, x, y }
+
+  const prepared = useMemo(() => {
+    const cats = Array.isArray(data) ? data.slice() : [];
+    const rows = cats
+      .map(c => ({
+        name: c.name,
+        income: Number(c.income || 0),
+        expense: Number(c.expense || 0),
+        total: Number(c.income || 0) + Number(c.expense || 0)
+      }))
+      .filter(r => r.total > 0);
+
+    const grand = rows.reduce((a, c) => a + c.total, 0) || 1;
+    let acc = 0;
+    const arcs = rows.map((c, idx) => {
+      const start = (acc / grand) * 2 * Math.PI;
+      acc += c.total;
+      const end = (acc / grand) * 2 * Math.PI;
+      return { ...c, start, end, idx };
+    });
+    return { arcs };
+  }, [data]);
+
+  const cx = size / 2; const cy = size / 2;
+  // Full pie radius with a small margin from SVG edge
+  const r = (size / 2) - 2;
+  // High-contrast categorical palette
+  const colors = [
+    '#3b82f6', // blue
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#8b5cf6', // indigo
+    '#ef4444', // red
+    '#14b8a6', // teal
+    '#f97316', // orange
+    '#22d3ee', // cyan
+    '#84cc16', // lime
+    '#e879f9', // fuchsia
+    '#06b6d4', // sky
+    '#a3e635', // lime light
+  ];
+
+  // Pie wedge path (filled): center -> start -> arc -> center
+  const wedgePath = (radius, start, end) => {
+    const x1 = cx + radius * Math.cos(start), y1 = cy + radius * Math.sin(start);
+    const x2 = cx + radius * Math.cos(end), y2 = cy + radius * Math.sin(end);
+    const large = end - start > Math.PI ? 1 : 0;
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2} Z`;
+  };
+
+  const fm = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div className="flex items-center justify-center">
+      <div ref={wrapperRef} className="relative">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+
+          {/* Filled pie with white separators; rotate so start at 12 o'clock */}
+          <g transform={`rotate(-90 ${cx} ${cy})`}>
+            {prepared.arcs.map((a, i) => (
+              <path
+                key={i}
+                d={wedgePath(r, a.start, a.end)}
+                fill={colors[i % colors.length]}
+                stroke="#ffffff"
+                strokeWidth={4}
+                opacity={0.98}
+                onMouseEnter={(e) => {
+                  const rect = wrapperRef.current?.getBoundingClientRect();
+                  const x = e.clientX - (rect?.left || 0);
+                  const y = e.clientY - (rect?.top || 0);
+                  setHover({ name: a.name, total: a.total, color: colors[i % colors.length], x, y });
+                }}
+                onMouseMove={(e) => {
+                  const rect = wrapperRef.current?.getBoundingClientRect();
+                  const x = e.clientX - (rect?.left || 0);
+                  const y = e.clientY - (rect?.top || 0);
+                  setHover((h) => h ? { ...h, x, y } : h);
+                }}
+                onMouseLeave={() => setHover(null)}
+              />
+            ))}
+          </g>
+
+          {/* no center text to match the mock */}
+        </svg>
+
+        {/* tooltip */}
+        {hover && (
+          <div
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-[110%] rounded-xl bg-white/95 px-3 py-2 text-xs text-gray-800 shadow-lg ring-1 ring-black/5"
+            style={{ left: hover.x, top: hover.y }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: hover.color }}></span>
+              <span className="font-medium">{hover.name}</span>
+              <span className="ml-4 font-semibold">{fm(hover.total)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

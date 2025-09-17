@@ -15,7 +15,6 @@ import {
 } from "../features/ledger/ledgerSlice";
 import { AuthContext } from "../context/authContext.jsx";
 import { transferOwner } from "../services/ledgers";
-import Tag from "../components/Tag";
 import { leaveLedgerAction } from "../features/ledger/ledgerSlice";
 
 export default function LedgerSettings() {
@@ -186,7 +185,9 @@ export default function LedgerSettings() {
                     <td className="px-3 py-3 text-gray-600">{m.email}</td>
                     <td className="px-3 py-3">
                       {m.role === "owner" ? (
-                        <Tag color="indigo" size="sm">owner</Tag>
+                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200">
+                          owner
+                        </span>
                       ) : (
                         <select
                           className="rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-60"
@@ -319,3 +320,4 @@ export default function LedgerSettings() {
     </>
   );
 }
+

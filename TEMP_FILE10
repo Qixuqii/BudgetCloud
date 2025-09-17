@@ -212,7 +212,7 @@ export default function CreateBudget() {
               <input
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
                 placeholder="1600"
@@ -272,7 +272,7 @@ export default function CreateBudget() {
                 <input
                   type="number"
                   min="0"
-                  step="1"
+                  step="0.01"
                   value={it.amount}
                   onChange={(e) => updateItem(it.id, { amount: e.target.value })}
                   placeholder="Enter Amount"
@@ -284,8 +284,7 @@ export default function CreateBudget() {
                   className="col-span-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
                   title="Remove"
                 >
-                  🗑️
-                </button>
+                  🗑�?                </button>
               </div>
             ))}
           </div>
@@ -318,3 +317,4 @@ export default function CreateBudget() {
     </div>
   );
 }
+

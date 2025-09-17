@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { selectCurrentLedgerId } from '../features/ledger/ledgerSlice';
 import { fetchCategories, createCategory } from '../services/categories';
 import { fetchTransaction, updateTransaction, deleteTransaction } from '../services/transactions';
+import { toYMD } from '../utils/date';
 
 const presetIncomeCategories = [
   'Salary',
@@ -22,7 +23,7 @@ export default function EditIncome() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState('1');
   const [tag, setTag] = useState('');
   const [date, setDate] = useState('');
   const [categories, setCategories] = useState([]);
@@ -48,8 +49,9 @@ export default function EditIncome() {
     (async () => {
       try {
         const tx = await fetchTransaction(txId);
-        setAmount(String(tx.amount || ''));
-        setDate(tx.date?.slice(0,10) || new Date().toISOString().slice(0,10));
+        setAmount(String(tx.amount || '1'));
+        const d0 = tx.date ? new Date(tx.date) : new Date();
+        setDate(toYMD(d0));
         setCategoryId(tx.category_id || '');
         // Split note into title/description/tag if possible
         const note = tx.note || '';
@@ -86,13 +88,15 @@ export default function EditIncome() {
       const noteParts = [title.trim() || 'Income'];
       if (description.trim()) noteParts.push(description.trim());
       if (tag.trim()) noteParts.push(`#${tag.trim()}`);
+      const dateApi = String(date || '').slice(0,10);
+
       await updateTransaction(txId, {
         ledger_id: currentLedgerId,
         category_id: Number(cid),
         amount: amt,
         type: 'income',
         note: noteParts.join(' - '),
-        date,
+        date: dateApi,
       });
       window.alert('Income updated successfully');
       navigate('/incomes');
@@ -128,7 +132,7 @@ export default function EditIncome() {
           <label className="mb-1 block text-xs text-gray-600">Amount</label>
           <div className="flex items-center gap-2">
             <span className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-3 text-sm text-gray-700">$</span>
-            <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <input type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
         </div>
 
@@ -154,7 +158,13 @@ export default function EditIncome() {
 
         <div className="mb-6">
           <label className="mb-1 block text-xs text-gray-600">Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <input
+            type="date"
+            lang="en"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
         </div>
 
         <button type="submit" className="mt-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700">Update</button>
@@ -162,4 +172,3 @@ export default function EditIncome() {
     </div>
   );
 }
-

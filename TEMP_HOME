@@ -144,7 +144,7 @@ const Home = () => {
               <div className="mt-1 text-2xl font-semibold text-gray-900">{money(m.value)} <span className="text-sm font-normal text-gray-500">from {money(m.prev)}</span></div>
               <div className="mt-3 inline-flex items-center gap-2 text-sm">
                 <span className={`inline-flex h-6 items-center rounded-full px-2 ${good ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                  {good ? 'â†‘' : 'â†“'} {money(Math.abs(d))} to previous month
+                  {good ? 'â†? : 'â†?} {money(Math.abs(d))} to previous month
                 </span>
               </div>
             </div>
@@ -216,3 +216,4 @@ function Donut({ data = [] }) {
 }
 
 export default Home;
+

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectCurrentLedgerId, loadLedgers, setCurrentLedger, selectLedgers } from '../features/ledger/ledgerSlice';
 import { fetchTransactions, deleteTransaction } from '../services/transactions';
 import { useNavigate } from 'react-router-dom';
+import { formatDateEN } from '../utils/date';
+import { fetchCategories } from '../services/categories';
 
 export default function Expenses() {
   const dispatch = useDispatch();
@@ -11,6 +13,9 @@ export default function Expenses() {
   const ledgers = useSelector(selectLedgers);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({ start: '', end: '', search: '', min: '', max: '', categoryId: '', tag: '' });
+  const [categories, setCategories] = useState([]);
 
   const load = async () => {
     setLoading(true);
@@ -27,6 +32,7 @@ export default function Expenses() {
   };
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
+  useEffect(() => { (async () => { try { setCategories(await fetchCategories('expense') || []); } catch {} })(); }, []);
   useEffect(() => { load(); }, [currentLedgerId]);
 
   const handleDelete = async (id) => {
@@ -34,8 +40,31 @@ export default function Expenses() {
     load();
   };
 
+  const filtered = useMemo(() => {
+    const s = (filters.search || '').toLowerCase();
+    const tag = (filters.tag || '').toLowerCase();
+    const cid = filters.categoryId ? Number(filters.categoryId) : null;
+    const min = filters.min ? Number(filters.min) : null;
+    const max = filters.max ? Number(filters.max) : null;
+    const start = filters.start ? new Date(filters.start) : null;
+    const end = filters.end ? new Date(filters.end) : null;
+    return items.filter(t => {
+      if (cid && Number(t.category_id) !== cid) return false;
+      if (min !== null && Number(t.amount || 0) < min) return false;
+      if (max !== null && Number(t.amount || 0) > max) return false;
+      if (start && new Date(t.date) < start) return false;
+      if (end && new Date(t.date) > end) return false;
+      const note = String(t.note || '').toLowerCase();
+      const cat = String(t.category_name || '').toLowerCase();
+      const led = String(t.ledger_name || '').toLowerCase();
+      if (s && !(note.includes(s) || cat.includes(s) || led.includes(s))) return false;
+      if (tag && !note.includes(`#${tag}`)) return false;
+      return true;
+    });
+  }, [items, filters]);
+
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <div className="text-sm text-gray-500">Expense</div>
@@ -54,6 +83,13 @@ export default function Expenses() {
             ))}
           </select>
           <button
+            onClick={() => setFilterOpen(v => !v)}
+            className={`rounded-xl px-4 py-2 text-sm font-medium shadow ring-1 ring-black/5 ${filterOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-900 hover:bg-gray-50'}`}
+            title="Filter"
+          >
+            Filter {filterOpen ? '×' : ''}
+          </button>
+          <button
             onClick={() => navigate('/expenses/new')}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 disabled:opacity-50"
             disabled={!currentLedgerId || (ledgers.find(l=>l.id===currentLedgerId)?.myRole === 'viewer')}
@@ -69,41 +105,95 @@ export default function Expenses() {
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-dashed p-8 text-center text-gray-500">No expenses yet.</div>
       ) : (
-        <ul className="space-y-4">
-          {items.map((t) => (
-            <li key={t.id} className="flex items-start justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">💳</div>
-                <div>
-                  <div className="text-sm text-gray-500">{t.category_name || 'Expense'} · {t.ledger_name || ''}</div>
-                  <div className="text-xl font-semibold text-gray-900">{t.note || 'Spending'}</div>
-                  <div className="mt-2 grid grid-cols-2 gap-6 text-sm text-gray-700">
+        <div className={`grid grid-cols-1 gap-5 md:grid-cols-12`}>
+          {filterOpen && (
+            <div className="md:col-span-4">
+              <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
+                <div className="mb-4 flex items-center justify-between">
+                  <button className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">Filter</button>
+                  <button className="text-gray-400 hover:text-gray-700" onClick={() => setFilterOpen(false)}>×</button>
+                </div>
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <div className="mb-1 text-gray-500">Date</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="date" className="rounded-xl border px-3 py-2" value={filters.start} onChange={(e)=>setFilters(f=>({...f,start:e.target.value}))} />
+                      <input type="date" className="rounded-xl border px-3 py-2" value={filters.end} onChange={(e)=>setFilters(f=>({...f,end:e.target.value}))} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-gray-500">Search</div>
+                    <input className="w-full rounded-xl border px-3 py-2" placeholder="Type..." value={filters.search} onChange={(e)=>setFilters(f=>({...f,search:e.target.value}))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-gray-500">Amount</div>
-                      <div>${Number(t.amount || 0).toLocaleString()}</div>
+                      <div className="mb-1 text-gray-500">Min Amount</div>
+                      <input type="number" min="0" step="1" className="w-full rounded-xl border px-3 py-2" placeholder="Type..." value={filters.min} onChange={(e)=>setFilters(f=>({...f,min:e.target.value}))} />
                     </div>
                     <div>
-                      <div className="text-gray-500">Date</div>
-                      <div>{new Date(t.date).toLocaleDateString()}</div>
+                      <div className="mb-1 text-gray-500">Max Amount</div>
+                      <input type="number" min="0" step="1" className="w-full rounded-xl border px-3 py-2" placeholder="Type..." value={filters.max} onChange={(e)=>setFilters(f=>({...f,max:e.target.value}))} />
                     </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-gray-500">Category</div>
+                    <select className="w-full rounded-xl border px-3 py-2" value={filters.categoryId} onChange={(e)=>setFilters(f=>({...f,categoryId:e.target.value}))}>
+                      <option value="">All</option>
+                      {categories.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-gray-500">Tag</div>
+                    <input className="w-full rounded-xl border px-3 py-2" placeholder="Type..." value={filters.tag} onChange={(e)=>setFilters(f=>({...f,tag:e.target.value}))} />
+                  </div>
+                  <div className="pt-2">
+                    <button className="rounded-lg border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50" onClick={(e)=>{e.preventDefault(); setFilters({ start:'', end:'', search:'', min:'', max:'', categoryId:'', tag:'' });}}>Reset</button>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate(`/expenses/${t.id}/edit`)}
-                  className="rounded-full bg-indigo-50 p-2 text-indigo-600 hover:bg-indigo-100"
-                  title="Edit"
-                >✏️</button>
-                <button
-                  onClick={() => handleDelete(t.id)}
-                  className="rounded-full bg-rose-50 p-2 text-rose-600 hover:bg-rose-100"
-                  title="Delete"
-                >🗑️</button>
-              </div>
-            </li>
-          ))}
-        </ul>
+            </div>
+          )}
+          <div className={`${filterOpen ? 'md:col-span-8' : 'md:col-span-12'}`}>
+            <ul className="space-y-4">
+              {filtered.map((t) => (
+                <li key={t.id} className="flex items-start justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">💳</div>
+                    <div>
+                      <div className="text-sm text-gray-500">{t.category_name || 'Expense'} · {t.ledger_name || ''}</div>
+                      <div className="text-xl font-semibold text-gray-900">{t.note || 'Spending'}</div>
+                      <div className="mt-2 grid grid-cols-2 gap-6 text-sm text-gray-700">
+                        <div>
+                          <div className="text-gray-500">Amount</div>
+                          <div>${Number(t.amount || 0).toLocaleString()}</div>
+                        </div>
+                    <div>
+                      <div className="text-gray-500">Date</div>
+                      <div>{formatDateEN(t.date)}</div>
+                    </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/expenses/${t.id}/edit`)}
+                      className="rounded-full bg-indigo-50 p-2 text-indigo-600 hover:bg-indigo-100"
+                      title="Edit"
+                    >✏️</button>
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="rounded-full bg-rose-50 p-2 text-rose-600 hover:bg-rose-100"
+                      title="Delete"
+                    >🗑️</button>
+                  </div>
+                </li>
+              ))}
+              {filtered.length === 0 && (
+                <li className="rounded-2xl border border-dashed p-8 text-center text-gray-500">No matching expenses.</li>
+              )}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   );
