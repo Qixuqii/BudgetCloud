@@ -5,7 +5,11 @@ $lightGreen : #b9e7e7;
     justify-content: center;
 
     .container{
-        width: 1024px;
+        // Wider, responsive page container
+        width: 100%;
+        max-width: 1280px; // ~Tailwind 7xl
+        padding-left: 24px;
+        padding-right: 24px;
 
 
         .link{

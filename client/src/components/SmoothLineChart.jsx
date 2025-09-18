@@ -1,38 +1,36 @@
 import { useMemo, useRef, useState } from 'react';
 
-// Simple smooth line chart with Catmull–Rom to Bezier conversion.
+// Simple smooth line chart with Catmull-Rom to Bezier conversion.
 // Props:
 // - data: [{ date: 'YYYY-MM-DD', amount: number }]
-// - color: tailwind color class suffix, e.g., 'blue-600'
+// - color: string (hex)
 // - height: number (px)
 // - showPoints: boolean
-export default function SmoothLineChart({ data = [], color = '#2563eb', height = 280, showPoints = true }) {
+// - showValueLabels: boolean (draw amount on top of points)
+export default function SmoothLineChart({ data = [], color = '#2563eb', height = 280, showPoints = true, showValueLabels = false }) {
   const svgRef = useRef(null);
-  const [hover, setHover] = useState(null); // {x,y,item}
+  const [hover, setHover] = useState(null); // {x, y, raw}
 
   const { path, areaPath, pts, maxVal } = useMemo(() => {
     const margin = { top: 16, right: 16, bottom: 28, left: 40 };
-    const width = 800; // intrinsic width; container scales via viewBox
-    const h = height;
+    const width = 800;
+    const plotH = height - margin.top - margin.bottom;
     const plotW = width - margin.left - margin.right;
-    const plotH = h - margin.top - margin.bottom;
     const items = Array.isArray(data) ? data : [];
-    const vals = items.map(d => Number(d.amount || 0));
-    const maxVal = Math.max(1, ...vals);
-    const minVal = 0; // baseline at 0 for spending
+    const values = items.map((d) => Number(d.amount || 0));
+    const maxVal = Math.max(1, ...values);
+    const minVal = 0;
 
-    // x spacing by index (data already densified by day)
-    const n = Math.max(1, items.length);
-    const xAt = (i) => margin.left + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+    const count = Math.max(1, items.length);
+    const xAt = (i) => margin.left + (count === 1 ? plotW / 2 : (i / (count - 1)) * plotW);
     const yAt = (v) => margin.top + (maxVal === minVal ? plotH / 2 : (1 - (v - minVal) / (maxVal - minVal)) * plotH);
 
     const pts = items.map((d, i) => ({ x: xAt(i), y: yAt(Number(d.amount || 0)), raw: d }));
 
-    // Catmull–Rom to Bezier
-    const tension = 0.5; // 0..1; higher = straighter
     let d = '';
     if (pts.length > 0) {
       d += `M ${pts[0].x} ${pts[0].y}`;
+      const tension = 0.5;
       for (let i = 0; i < pts.length - 1; i++) {
         const p0 = pts[Math.max(0, i - 1)];
         const p1 = pts[i];
@@ -46,7 +44,6 @@ export default function SmoothLineChart({ data = [], color = '#2563eb', height =
       }
     }
 
-    // Area under curve
     let areaPath = '';
     if (pts.length > 0) {
       areaPath = d + ` L ${pts[pts.length - 1].x} ${margin.top + plotH}` +
@@ -59,7 +56,6 @@ export default function SmoothLineChart({ data = [], color = '#2563eb', height =
   const colorStroke = color;
   const colorFill = color;
 
-  // Tooltip handler: find nearest point by clientX
   const onMouseMove = (e) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -73,6 +69,8 @@ export default function SmoothLineChart({ data = [], color = '#2563eb', height =
 
   const onLeave = () => setHover(null);
 
+  const formatAmount = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className="relative w-full overflow-hidden">
       <svg
@@ -82,41 +80,50 @@ export default function SmoothLineChart({ data = [], color = '#2563eb', height =
         onMouseMove={onMouseMove}
         onMouseLeave={onLeave}
       >
-        {/* Grid lines */}
         <g className="stroke-gray-200">
           {Array.from({ length: 4 }).map((_, i) => (
             <line key={i} x1={40} x2={760} y1={16 + (i * (height - 44)) / 3} y2={16 + (i * (height - 44)) / 3} />
           ))}
         </g>
 
-        {/* Area under curve */}
         {areaPath && (
           <path d={areaPath} fill={colorFill} opacity="0.08" />
         )}
 
-        {/* Smooth line */}
         {path && (
           <path d={path} fill="none" stroke={colorStroke} strokeWidth="2.5" />
         )}
 
-        {/* Points */}
         {showPoints && (
           <g>
             {pts.map((p, idx) => (
-              <circle key={idx} cx={p.x} cy={p.y} r={3} fill="#ffffff" stroke={colorStroke} strokeWidth="2" />
+              <circle key={`point-${idx}`} cx={p.x} cy={p.y} r={3} fill="#ffffff" stroke={colorStroke} strokeWidth="2" />
             ))}
+          </g>
+        )}
+
+        {showValueLabels && (
+          <g className="fill-gray-600 text-[10px] font-semibold">
+            {pts.map((p, idx) => {
+              const amount = formatAmount(p.raw?.amount);
+              const y = Math.max(18, p.y - 10);
+              return (
+                <text key={`label-${idx}`} x={p.x} y={y} textAnchor="middle">
+                  {amount}
+                </text>
+              );
+            })}
           </g>
         )}
       </svg>
 
-      {/* Tooltip */}
       {hover && (
         <div
           className="pointer-events-none absolute -translate-x-1/2 -translate-y-3 rounded-md bg-white px-2 py-1 text-xs text-gray-700 shadow ring-1 ring-black/5"
           style={{ left: `${(hover.x / 800) * 100}%`, top: hover.y }}
         >
           <div className="font-medium">{hover.raw?.date}</div>
-          <div>${Number(hover.raw?.amount || 0).toFixed(2)}</div>
+          <div>${formatAmount(hover.raw?.amount)}</div>
         </div>
       )}
     </div>

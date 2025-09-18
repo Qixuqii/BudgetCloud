@@ -27,6 +27,19 @@ export default function CreateBudget() {
   const [endDate, setEndDate] = useState("");
   const [allCategories, setAllCategories] = useState([]); // [{id,name,type}]
   const [items, setItems] = useState([]); // [{id, categoryId, amount}]
+  const isCategoryTaken = (catId, excludeId) =>
+    items.some((entry) => entry.id !== excludeId && entry.categoryId === catId);
+
+  const findFirstAvailableCategoryId = (existingItems) => {
+    const used = new Set(
+      (existingItems ?? [])
+        .map((entry) => entry.categoryId)
+        .filter((id) => id != null && id !== "NEW")
+    );
+    const available = allCategories.find((cat) => !used.has(cat.id));
+    return available?.id ?? null;
+  };
+
 
   useEffect(() => {
     (async () => {
@@ -58,9 +71,14 @@ export default function CreateBudget() {
   );
 
   const addItem = () => {
-    const nextId = items.length ? Math.max(...items.map((i) => i.id)) + 1 : 1;
-    const defaultCat = allCategories[0]?.id ?? null;
-    setItems([...items, { id: nextId, categoryId: defaultCat, amount: "" }]);
+    setItems((prev) => {
+      const nextId = prev.length ? Math.max(...prev.map((i) => i.id)) + 1 : 1;
+      const availableId = findFirstAvailableCategoryId(prev);
+      return [
+        ...prev,
+        { id: nextId, categoryId: availableId ?? "NEW", amount: "" },
+      ];
+    });
   };
   const addNewCategory = async () => {
     const name = window.prompt('New category name');
@@ -258,13 +276,24 @@ export default function CreateBudget() {
                     value={it.categoryId ?? ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateItem(it.id, { categoryId: val === 'NEW' ? 'NEW' : (Number(val) || null) });
+                      const nextId = val === 'NEW' ? 'NEW' : Number(val) || null;
+                      if (nextId !== 'NEW' && nextId != null && isCategoryTaken(nextId, it.id)) {
+                        window.alert('This category is already selected for this budget.');
+                        return;
+                      }
+                      updateItem(it.id, { categoryId: nextId, newName: nextId === 'NEW' ? it.newName : undefined });
                     }}
                     className="col-span-5 rounded-xl border border-gray-300 px-3 py-3 text-sm"
                   >
                     {allCategories.length === 0 && <option value="">No categories</option>}
                     {allCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option
+                        key={c.id}
+                        value={c.id}
+                        disabled={isCategoryTaken(c.id, it.id) && it.categoryId !== c.id}
+                      >
+                        {c.name}
+                      </option>
                     ))}
                     <option value="NEW">Custom...</option>
                   </select>

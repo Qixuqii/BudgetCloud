@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } from '../features/ledger/ledgerSlice';
 import { fetchCategories, createCategory } from '../services/categories';
 import { addTransaction } from '../services/transactions';
-import { fetchBudgets, setCategoryBudget } from '../services/ledgers';
+import { fetchBudgets, setCategoryBudget, updateBudgetPeriod } from '../services/ledgers';
 import { toYMD } from '../utils/date';
 
 const presetExpenseCategories = [
@@ -27,6 +27,30 @@ export default function AddExpense() {
   const [customName, setCustomName] = useState('');
   // Over-budget confirmation modal state
   const [overBudget, setOverBudget] = useState(null); // { limit, spent, remaining, payload }
+
+  // Donor selection modal state
+  const [donorModal, setDonorModal] = useState(null); // { donors, amount }
+  const [donorSelection, setDonorSelection] = useState(''); // '' -> increase total; otherwise donor category_id
+  const donorResolveRef = useRef(null);
+  const openDonorModal = (donors, amount) => new Promise((resolve) => {
+    donorResolveRef.current = resolve;
+    setDonorSelection('');
+    setDonorModal({ donors, amount });
+  });
+  const closeDonorModal = () => { setDonorModal(null); };
+  const handleDonorCancel = () => {
+    donorResolveRef.current?.(null);
+    closeDonorModal();
+  };
+  const handleDonorConfirm = () => {
+    const val = donorSelection;
+    if (!val) {
+      donorResolveRef.current?.({ type: 'increase' });
+    } else {
+      donorResolveRef.current?.({ type: 'donor', donorId: Number(val) });
+    }
+    closeDonorModal();
+  };
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
   useEffect(() => {
@@ -63,7 +87,8 @@ export default function AddExpense() {
       const period = new Date().toISOString().slice(0,7);
       try {
         const data = await fetchBudgets(currentLedgerId, period);
-        const found = (data?.items || []).find(it => it.category_id === Number(cid));
+        const items = data?.items || [];
+        const found = items.find(it => it.category_id === Number(cid));
         const hasBudget = found && Number(found.budget_amount) > 0;
         if (!hasBudget) {
           const confirmAdd = window.confirm('No budget is set for this category in the selected budget. Create one now?');
@@ -75,10 +100,46 @@ export default function AddExpense() {
           const b = Number(input);
           if (!Number.isFinite(b) || b <= 0) { window.alert('Invalid amount. Budget creation canceled'); return; }
 
+          // Ask reallocation target to keep total unchanged
+          const donors = items.filter(it => it.category_id !== Number(cid) && Number(it.budget_amount) > 0);
+          let increaseBy = 0;
+          let donorUpdate = null; // {id, newAmt}
+          if (donors.length > 0) {
+            const choice = await openDonorModal(donors, b);
+            if (!choice) { window.alert('Budget creation canceled'); return; }
+            if (choice.type === 'increase') {
+              const proceed = window.confirm(`Increase overall total budget by $${b.toFixed(2)}?`);
+              if (!proceed) return;
+              increaseBy = b;
+            } else {
+              const donor = donors.find(d => d.category_id === choice.donorId);
+              if (!donor) { window.alert('Category not found.'); return; }
+              const donorAmt = Number(donor.budget_amount) || 0;
+              if (donorAmt >= b) {
+                donorUpdate = { id: donor.category_id, newAmt: donorAmt - b };
+              } else {
+                const diff = b - donorAmt;
+                const proceed = window.confirm(`Selected category has only $${donorAmt.toFixed(2)}. Set it to $0 and increase total by $${diff.toFixed(2)}?`);
+                if (!proceed) return;
+                donorUpdate = { id: donor.category_id, newAmt: 0 };
+                increaseBy = diff;
+              }
+            }
+          } else {
+            const proceed = window.confirm(`No categories to reallocate from. Increase overall total budget by $${b.toFixed(2)}?`);
+            if (!proceed) return;
+            increaseBy = b;
+          }
+
           try {
             await setCategoryBudget(currentLedgerId, Number(cid), b, period);
+            if (donorUpdate) await setCategoryBudget(currentLedgerId, donorUpdate.id, donorUpdate.newAmt, period);
+            if (increaseBy > 0) {
+              const currentTotal = Number(data?.total) || items.reduce((a, it) => a + (Number(it.budget_amount) || 0), 0);
+              await updateBudgetPeriod(currentLedgerId, { period, totalBudget: currentTotal + increaseBy });
+            }
           } catch {
-            window.alert('Failed to create budget');
+            window.alert('Failed to create or adjust budget');
             return;
           }
         }
@@ -229,6 +290,35 @@ export default function AddExpense() {
               >
                 Create Anyway
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Donor selection modal */}
+      {donorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-md rounded-2xl bg-white p-6 shadow ring-1 ring-black/5">
+            <div className="mb-4 text-sm text-gray-700">
+              To keep total budget unchanged, deduct from which category?
+            </div>
+            <label className="mb-2 block text-xs text-gray-600">Select category to deduct</label>
+            <select
+              value={donorSelection}
+              onChange={(e) => setDonorSelection(e.target.value)}
+              className="mb-4 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Increase total budget by entered amount</option>
+              {donorModal.donors.map((d) => (
+                <option key={d.category_id} value={d.category_id}>
+                  {d.category_name} ($
+                  {Number(d.budget_amount || 0).toFixed(2)})
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={handleDonorCancel} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={handleDonorConfirm} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">Confirm</button>
             </div>
           </div>
         </div>

@@ -27,7 +27,11 @@ function CategoryCard({ name, spent = 0, txCount = 0 }) {
     Housing: { icon: "🏠", bg: "bg-orange-100", fg: "text-orange-700" },
     Education: { icon: "🎓", bg: "bg-green-100", fg: "text-green-700" },
   };
-  const theme = iconMap[name] ?? { icon: "📦", bg: "bg-gray-100", fg: "text-gray-700" };
+  const theme = iconMap[name] ?? {
+    icon: "📦",
+    bg: "bg-gray-100",
+    fg: "text-gray-700",
+  };
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 transition-all hover:-translate-y-[1px] hover:shadow-md">
@@ -40,11 +44,17 @@ function CategoryCard({ name, spent = 0, txCount = 0 }) {
             {theme.icon}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold text-gray-900">{name}</div>
-            <div className="text-[13px] text-gray-500">{txCount} transaction{txCount === 1 ? "" : "s"}</div>
+            <div className="truncate text-base font-semibold text-gray-900">
+              {name}
+            </div>
+            <div className="text-[13px] text-gray-500">
+              {txCount} transaction{txCount === 1 ? "" : "s"}
+            </div>
           </div>
         </div>
-        <div className="shrink-0 text-right text-xl font-bold text-gray-900">{fmtMoney(spent)}</div>
+        <div className="shrink-0 text-right text-xl font-bold text-gray-900">
+          {fmtMoney(spent)}
+        </div>
       </div>
     </div>
   );
@@ -230,7 +240,9 @@ export default function LedgerDetail() {
       {view === "cards" ? (
         <>
           {/* Section title (cards view) */}
-          <div className="mb-3 text-sm font-semibold text-gray-900">Expenses per category</div>
+          <div className="mb-3 text-sm font-semibold text-gray-900">
+            Expenses per category
+          </div>
 
           {/* Categories grid */}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -241,7 +253,12 @@ export default function LedgerDetail() {
               </div>
             ) : (
               categories.map((c, i) => (
-                <CategoryCard key={c.id ?? i} name={c.name} spent={c.spent} txCount={c.txCount} />
+                <CategoryCard
+                  key={c.id ?? i}
+                  name={c.name}
+                  spent={c.spent}
+                  txCount={c.txCount}
+                />
               ))
             )}
           </div>

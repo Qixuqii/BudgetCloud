@@ -28,6 +28,19 @@ export default function EditBudget() {
   const [totalBudget, setTotalBudget] = useState("");
   const [allCategories, setAllCategories] = useState([]); // [{id,name,type}]
   const [items, setItems] = useState([]); // [{id, categoryId|'NEW', newName?, amount}]
+  const isCategoryTaken = (catId, excludeId) =>
+    items.some((entry) => entry.id !== excludeId && entry.categoryId === catId);
+
+  const findFirstAvailableCategoryId = (existingItems) => {
+    const used = new Set(
+      (existingItems ?? [])
+        .map((entry) => entry.categoryId)
+        .filter((id) => id != null && id !== "NEW")
+    );
+    const available = allCategories.find((cat) => !used.has(cat.id));
+    return available?.id ?? null;
+  };
+
   const [initialCatAmounts, setInitialCatAmounts] = useState(new Map()); // Map<categoryId, amount>
 
   const period = useMemo(() => month, [month]);
@@ -69,13 +82,36 @@ export default function EditBudget() {
   );
 
   const addItem = () => {
-    const nextId = items.length ? Math.max(...items.map((i) => i.id)) + 1 : 1;
-    const defaultCat = allCategories[0]?.id ?? null;
-    setItems([...items, { id: nextId, categoryId: defaultCat, amount: "" }]);
+    setItems((prev) => {
+      const nextId = prev.length ? Math.max(...prev.map((i) => i.id)) + 1 : 1;
+      const availableId = findFirstAvailableCategoryId(prev);
+      return [
+        ...prev,
+        { id: nextId, categoryId: availableId ?? "NEW", amount: "" },
+      ];
+    });
   };
   const removeItem = (id) => setItems(items.filter((i) => i.id !== id));
   const updateItem = (id, patch) =>
     setItems(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  // Add remaining amount helper
+  const remainingForItem = (_id) => {
+    // Remaining should be based on the current total allocation,
+    // so that after one +R click it becomes 0 for subsequent clicks.
+    const tot = Number(totalBudget);
+    if (!Number.isFinite(tot) || tot <= 0) return 0;
+    const sumAll = items.reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+    const rem = tot - sumAll;
+    return rem > 0 ? rem : 0;
+  };
+  const addRemainingToItem = (id) => {
+    const current = items.find((it) => it.id === id);
+    if (!current) return;
+    const add = remainingForItem(id);
+    const next = ((parseFloat(current.amount) || 0) + add).toFixed(2);
+    updateItem(id, { amount: String(next) });
+  };
 
   const addNewCategory = async () => {
     const name = window.prompt('New category name');
@@ -205,13 +241,24 @@ export default function EditBudget() {
                   value={it.categoryId ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
-                    updateItem(it.id, { categoryId: val === 'NEW' ? 'NEW' : (Number(val) || null) });
+                    const nextId = val === 'NEW' ? 'NEW' : Number(val) || null;
+                    if (nextId !== 'NEW' && nextId != null && isCategoryTaken(nextId, it.id)) {
+                      window.alert('This category is already selected for this budget.');
+                      return;
+                    }
+                    updateItem(it.id, { categoryId: nextId, newName: nextId === 'NEW' ? it.newName : undefined });
                   }}
                   className="col-span-5 rounded-xl border border-gray-300 px-3 py-3 text-sm"
                 >
                   {allCategories.length === 0 && <option value="">No categories</option>}
                   {allCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option
+                      key={c.id}
+                      value={c.id}
+                      disabled={isCategoryTaken(c.id, it.id) && it.categoryId !== c.id}
+                    >
+                      {c.name}
+                    </option>
                   ))}
                   <option value="NEW">Custom...</option>
                 </select>
@@ -223,9 +270,17 @@ export default function EditBudget() {
                 value={it.amount}
                 onChange={(e) => updateItem(it.id, { amount: e.target.value })}
                 placeholder="Enter Amount"
-                className="col-span-6 rounded-xl border border-gray-300 px-3 py-3 text-sm"
+                className="col-span-5 rounded-xl border border-gray-300 px-3 py-3 text-sm"
               />
-              <button type="button" onClick={() => removeItem(it.id)} className="col-span-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100" title="Remove">🗑️</button>
+              <button
+                type="button"
+                onClick={() => addRemainingToItem(it.id)}
+                className="col-span-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50"
+                title="Add remaining amount"
+              >
+                +R
+              </button>
+              <button type="button" onClick={() => removeItem(it.id)} className="col-span-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100" title="Remove">Del</button>
             </div>
           ))}
         </div>
