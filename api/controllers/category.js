@@ -3,6 +3,7 @@ import {
   listCategoriesByUser,
   createCategory,
   deleteCategoryById,
+  updateCategoryName,
 } from "../dao/categoryDao.js";
 
 /**
@@ -48,6 +49,37 @@ export async function addCategory(req, res) {
     return res.status(500).json({ message: "Failed to create category" });
   }
 }
+
+/**
+ * PUT /api/categories/:categoryId
+ * body: { name }
+ */
+export async function updateCategory(req, res) {
+  try {
+    const userId = req.user.id;
+    const categoryId = Number(req.params.categoryId);
+    const { name } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'name required' });
+    }
+    const result = await updateCategoryName({
+      categoryId,
+      userId,
+      name: name.trim(),
+    });
+    if (result.duplicated) {
+      return res.status(409).json({ message: 'Category already exists' });
+    }
+    if (!result.updated) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    return res.json({ id: categoryId, name: result.name, type: result.type });
+  } catch (e) {
+    console.error('updateCategory error:', e);
+    return res.status(500).json({ message: 'Failed to update category' });
+  }
+}
+
 
 /**
  * DELETE /api/categories/:categoryId

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { selectCurrentLedgerId } from '../features/ledger/ledgerSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } from '../features/ledger/ledgerSlice';
 import { fetchTransactions } from '../services/transactions';
 import { formatDateEN, formatMonthEN } from '../utils/date';
 
@@ -20,7 +20,10 @@ function fmtYMD(d) {
 }
 
 export default function CalendarPage() {
+  const dispatch = useDispatch();
   const currentLedgerId = useSelector(selectCurrentLedgerId);
+  const ledgers = useSelector(selectLedgers);
+  const [pickedLedger, setPickedLedger] = useState(() => (currentLedgerId ? String(currentLedgerId) : 'ALL'));
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [selected, setSelected] = useState(() => fmtYMD(new Date()));
   const [items, setItems] = useState([]); // monthly transactions
@@ -61,16 +64,23 @@ export default function CalendarPage() {
   const selectedList = dayMap.get(selected)?.list || [];
   const selectedTotal = selectedList.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
+  useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
+  // Keep local selection in sync when global current ledger changes (unless viewing ALL)
   useEffect(() => {
     if (!currentLedgerId) return;
+    if (pickedLedger !== 'ALL' && pickedLedger !== String(currentLedgerId)) {
+      setPickedLedger(String(currentLedgerId));
+    }
+  }, [currentLedgerId]);
+
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const params = {
-          ledger_id: currentLedgerId,
-          start_date: fmtYMD(monthStart),
-          end_date: fmtYMD(monthEnd),
-        };
+        const params = { start_date: fmtYMD(monthStart), end_date: fmtYMD(monthEnd) };
+        if (pickedLedger && pickedLedger !== 'ALL') {
+          params.ledger_id = Number(pickedLedger);
+        }
         const rows = await fetchTransactions(params);
         setItems(rows || []);
         // If selected not in this month, default to first day of current month
@@ -81,15 +91,7 @@ export default function CalendarPage() {
       }
     };
     load();
-  }, [currentLedgerId, monthKey]);
-
-  if (!currentLedgerId) {
-    return (
-      <div className="mx-auto max-w-6xl px-4 py-16 text-center text-gray-600">
-        Please select a budget in the Budget page first.
-      </div>
-    );
-  }
+  }, [pickedLedger, monthKey]);
 
   const monthTitle = formatMonthEN(monthStart);
   const monthValue = `${monthStart.getFullYear()}-${String(monthStart.getMonth()+1).padStart(2, '0')}`;
@@ -133,17 +135,32 @@ export default function CalendarPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <select
+              value={pickedLedger}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPickedLedger(v);
+                if (v !== 'ALL') dispatch(setCurrentLedger(Number(v)));
+              }}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
+              title="Select budget"
+            >
+              <option value="ALL">All Budgets</option>
+              {ledgers.map((l) => (
+                <option key={l.id} value={String(l.id)}>{l.name} ({l.myRole || 'viewer'})</option>
+              ))}
+            </select>
             <button
               className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
               onClick={() => setCursor(new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1))}
             >
-              ‹
+              {'<'}
             </button>
             <button
               className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
               onClick={() => setCursor(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1))}
             >
-              ›
+              {'>'}
             </button>
           </div>
         </div>
@@ -197,7 +214,7 @@ export default function CalendarPage() {
           <div className="text-sm text-gray-700">Total Amount: ${selectedTotal.toFixed(2)}</div>
         </div>
         {loading ? (
-          <div className="py-12 text-center text-gray-500">Loading…</div>
+          <div className="py-12 text-center text-gray-500">Loading...</div>
         ) : (
           <ul className="divide-y divide-gray-200">
             {selectedList.map((t) => (

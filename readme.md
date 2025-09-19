@@ -146,22 +146,22 @@
 
 # ledger invite 和删除 ledger 功能是不是还要其他人的同意，这个功能怎么确定
 
-# budget 的 status 状态要变化，还有确定好的预算都不能超，如果记账的时候超过了就不允许再记账或者是变红 on track 各种状态要注意选择新的
+<!-- # budget 的 status 状态要变化，还有确定好的预算都不能超，如果记账的时候超过了就不允许再记账或者是变红 on track 各种状态要注意选择新的
 
-# 调理 budget 修改： 自动设置一个不全的 category 然后创建，可以限额小于实际记账总额
+# 调理 budget 修改： 自动设置一个不全的 category 然后创建，可以限额小于实际记账总额 -->
 
-# 再建立一个周的 dashboard 右边的 overview 换成一周 7 天支出分布”：一圈 7 根柱，对比工作日 vs 周末。“Tangential Polar Bar (Label Position: middle)” 是 ECharts 的极坐标柱状图示例。它把普通条形图放到极坐标系里——每个分类占一个角度扇区，柱子的长度=金额大小，而标签沿切线方向（tangential）放在柱子“中部（middle）”，读起来更顺手，不会互相遮挡。
+<!-- # 再建立一个周的 dashboard 右边的 overview 换成一周 7 天支出分布”：一圈 7 根柱，对比工作日 vs 周末。“Tangential Polar Bar (Label Position: middle)” 是 ECharts 的极坐标柱状图示例。它把普通条形图放到极坐标系里——每个分类占一个角度扇区，柱子的长度=金额大小，而标签沿切线方向（tangential）放在柱子“中部（middle）”，读起来更顺手，不会互相遮挡。 -->
 
 <!-- “账户或成员对比（少量类目）”：当维度不多、想做环形对比时，比放射状雷达更直观。 -->
 
-# 要求 budget 里已经有 categories 之后不能再选择这个，不能重复
+<!-- # 要求 budget 里已经有 categories 之后不能再选择这个，不能重复
 
 # category 的图表要求有数字并且根据选择的内容进行呈现出不一样的，dasboard 也是
 
 # 要求鼠标移动之前就是浮雕的效果，鼠标移动之后会展开，如果文字显示不出来的话
 
-# 如果新增这个新的 categories，不管是在 expense 还是 update 都要求询问这个新增的数额会在哪个 categories 减去，要求保证整体 budget 的预算不变，如果没有要选择的话就问是否增加预算
+# 如果新增这个新的 categories，不管是在 expense 还是 update 都要求询问这个新增的数额会在哪个 categories 减去，要求保证整体 budget 的预算不变，如果没有要选择的话就问是否增加预算 -->
 
-# 要求可以 edit categories， 修改这个标签让一些不需要的删掉
+<!-- # 要求可以 edit categories， 修改这个标签让一些不需要的删掉 -->
 
-# category 和 calendar 都要可以选择 budget
+<!-- # category 和 calendar 都要可以选择 budget 一个的 select 不要显示，calendar 要求可以选择全部 -->

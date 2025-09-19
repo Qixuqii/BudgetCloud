@@ -7,6 +7,7 @@ import {
 } from "../features/ledger/ledgerSlice";
 import { formatDateEN } from "../utils/date";
 import Tag from "../components/Tag";
+import { getCategoryTheme } from "../utils/categoryTheme";
 
 /* ------------------------ Helpers ------------------------ */
 const fmtMoneyRaw = (n) =>
@@ -21,20 +22,10 @@ const clampPct = (n) => Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
 
 /* ------------------------ Category Card ------------------------ */
 function CategoryCard({ name, spent = 0, txCount = 0 }) {
-  const iconMap = {
-    Food: { icon: "👜", bg: "bg-emerald-100", fg: "text-emerald-700" },
-    Entertainment: { icon: "🎬", bg: "bg-amber-100", fg: "text-amber-700" },
-    Housing: { icon: "🏠", bg: "bg-orange-100", fg: "text-orange-700" },
-    Education: { icon: "🎓", bg: "bg-green-100", fg: "text-green-700" },
-  };
-  const theme = iconMap[name] ?? {
-    icon: "📦",
-    bg: "bg-gray-100",
-    fg: "text-gray-700",
-  };
+  const theme = getCategoryTheme(name);
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 transition-all hover:-translate-y-[1px] hover:shadow-md">
+    <div className="group relative rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ring-1 ring-gray-200 transition-all duration-300 min-h-[132px] group-hover:min-h-[160px] hover:-translate-y-1 hover:shadow-[0_22px_36px_rgba(37,99,235,0.18)] hover:ring-blue-200/70">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div
@@ -44,7 +35,7 @@ function CategoryCard({ name, spent = 0, txCount = 0 }) {
             {theme.icon}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold text-gray-900">
+            <div className="max-h-6 overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold text-gray-900 transition-all duration-300 group-hover:max-h-24 group-hover:text-clip group-hover:whitespace-normal">
               {name}
             </div>
             <div className="text-[13px] text-gray-500">

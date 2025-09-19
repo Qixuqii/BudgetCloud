@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } from '../features/ledger/ledgerSlice';
 import { fetchCategories, createCategory } from '../services/categories';
 import { addTransaction } from '../services/transactions';
+import CategoryManager from '../components/CategoryManager';
 import { fetchBudgets, setCategoryBudget, updateBudgetPeriod } from '../services/ledgers';
 import { toYMD } from '../utils/date';
 
@@ -25,6 +26,7 @@ export default function AddExpense() {
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState('');
   const [customName, setCustomName] = useState('');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   // Over-budget confirmation modal state
   const [overBudget, setOverBudget] = useState(null); // { limit, spent, remaining, payload }
 
@@ -52,6 +54,26 @@ export default function AddExpense() {
     closeDonorModal();
   };
 
+  const handleManagedCategories = (list = []) => {
+    const safeList = Array.isArray(list) ? list : [];
+    setCategories(safeList);
+    if (categoryId === 'NEW' || categoryId === '' || categoryId == null) {
+      if (safeList.length === 0) {
+        setCategoryId('NEW');
+      }
+      return;
+    }
+    const currentId = Number(categoryId);
+    if (!safeList.some((cat) => cat.id === currentId)) {
+      if (safeList.length > 0) {
+        setCategoryId(safeList[0].id);
+      } else {
+        setCategoryId('NEW');
+        setCustomName('');
+      }
+    }
+  };
+
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
   useEffect(() => {
     (async () => {
@@ -63,10 +85,16 @@ export default function AddExpense() {
           );
           rows = await fetchCategories('expense');
         }
-        setCategories(rows || []);
-        setCategoryId(rows?.[0]?.id ?? '');
+        const next = Array.isArray(rows) ? rows : [];
+        handleManagedCategories(next);
+        if (next.length > 0) {
+          setCategoryId(next[0].id);
+        } else {
+          setCategoryId('NEW');
+        }
       } catch (e) {
-        setCategories([]);
+        handleManagedCategories([]);
+        setCategoryId('NEW');
       }
     })();
   }, []);
@@ -81,7 +109,15 @@ export default function AddExpense() {
       if (cid === 'NEW') {
         if (!customName.trim()) { window.alert('Please enter a category name'); return; }
         const created = await createCategory({ name: customName.trim(), type: 'expense' });
-        cid = created?.id;
+        if (created?.id) {
+          const next = [...categories.filter((cat) => cat.id !== created.id), created];
+          handleManagedCategories(next);
+          setCategoryId(created.id);
+          cid = created.id;
+        } else {
+          cid = created?.id;
+        }
+        setCustomName('');
       }
       // Ensure category has a budget in this ledger/month
       const period = new Date().toISOString().slice(0,7);
@@ -252,6 +288,13 @@ export default function AddExpense() {
             )}
             <input className="col-span-5 rounded-xl border border-gray-300 px-3 py-3 text-sm" placeholder="Tag (optional)" value={tag} onChange={(e) => setTag(e.target.value)} />
           </div>
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+          >
+            Manage categories
+          </button>
         </div>
         <div className="mb-6">
           <label className="mb-1 block text-xs text-gray-600">Date</label>
@@ -323,6 +366,13 @@ export default function AddExpense() {
           </div>
         </div>
       )}
+
+      <CategoryManager
+        type="expense"
+        open={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        onChange={handleManagedCategories}
+      />
     </div>
   );
 }

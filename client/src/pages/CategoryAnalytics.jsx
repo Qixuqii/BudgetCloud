@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectCurrentLedgerId, loadLedgers } from '../features/ledger/ledgerSlice';
+import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } from '../features/ledger/ledgerSlice';
 import { fetchTransactions } from '../services/transactions';
 import { Card } from '@tremor/react';
 import SmoothLineChart from '../components/SmoothLineChart';
 import CategoryBarChart from '../components/CategoryBarChart';
+import { getCategoryTheme } from '../utils/categoryTheme';
 
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -33,6 +34,7 @@ function enumerateDates(s, e) {
 export default function CategoryAnalytics() {
   const dispatch = useDispatch();
   const ledgerId = useSelector(selectCurrentLedgerId);
+  const ledgers = useSelector(selectLedgers);
   const [type, setType] = useState('expense');
   const [{ start, end }, setRange] = useState(monthRangeToday());
   const [tx, setTx] = useState([]);
@@ -152,39 +154,69 @@ export default function CategoryAnalytics() {
             className="rounded-md border px-2 py-1"
           />
         </div>
-        <div className="inline-flex overflow-hidden rounded-xl border">
-          <button
-            className={(type === 'expense' ? 'bg-blue-600 text-white' : 'text-blue-600') + ' px-3 py-1 text-sm'}
-            onClick={() => setType('expense')}
-          >
-            Expense
-          </button>
-          <button
-            className={(type === 'income' ? 'bg-blue-600 text-white' : 'text-blue-600') + ' border-l px-3 py-1 text-sm'}
-            onClick={() => setType('income')}
-          >
-            Income
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <select
+              value={ledgerId || ''}
+              onChange={(e) => { const v = e.target.value; if (!v) return; dispatch(setCurrentLedger(Number(v))); }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              title="Select budget"
+            >
+              <option value="" disabled>Select Budget</option>
+              {ledgers.map((l, idx) => (
+                <option key={`${l.id}-${idx}`} value={l.id}>{l.name} ({l.myRole || 'viewer'})</option>
+              ))}
+            </select>
+          </div>
+          <div className="inline-flex overflow-hidden rounded-xl border">
+            <button
+              className={(type === 'expense' ? 'bg-blue-600 text-white' : 'text-blue-600') + ' px-3 py-1 text-sm'}
+              onClick={() => setType('expense')}
+            >
+              Expense
+            </button>
+            <button
+              className={(type === 'income' ? 'bg-blue-600 text-white' : 'text-blue-600') + ' border-l px-3 py-1 text-sm'}
+              onClick={() => setType('income')}
+            >
+              Income
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {totalsByCategory.map((c) => (
-          <Card
-            key={c.id}
-            className={'ring-1 ring-gray-200 transition-shadow ' + (String(selectedCat) === String(c.id) ? 'border-blue-500 shadow-md' : 'hover:shadow-sm')}
-            onClick={() => setSelectedCat(String(c.id))}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-900">{c.name}</div>
-                <div className="text-xs text-gray-500">{c.count} transaction{c.count !== 1 ? 's' : ''}</div>
+
+        {totalsByCategory.map((c) => {
+          const theme = getCategoryTheme(c.name);
+          const isSelected = String(selectedCat) === String(c.id);
+          const cardClass = `group relative rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ring-1 ring-gray-200 transition-all duration-300 min-h-[132px] group-hover:min-h-[160px] ${isSelected ? 'border-blue-500 ring-blue-200/80 shadow-[0_24px_40px_rgba(37,99,235,0.22)] scale-[1.02]' : 'hover:-translate-y-1 hover:shadow-[0_22px_36px_rgba(37,99,235,0.18)] hover:ring-blue-200/70'}`;
+          return (
+            <Card
+              key={c.id}
+              className={cardClass}
+              onClick={() => setSelectedCat(String(c.id))}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-full ${theme.bg} ${theme.fg} text-lg`}
+                    aria-hidden="true"
+                  >
+                    {theme.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="max-h-6 overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold text-gray-900 transition-all duration-300 group-hover:max-h-24 group-hover:text-clip group-hover:whitespace-normal">
+                      {c.name}
+                    </div>
+                    <div className="text-[13px] text-gray-500">{c.count} transaction{c.count !== 1 ? 's' : ''}</div>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right text-xl font-bold text-gray-900">${fmt(c.amount)}</div>
               </div>
-              <div className="text-[10px] uppercase tracking-wide text-blue-500">{type}</div>
-            </div>
-            <div className="mt-3 text-right text-lg font-semibold">${fmt(c.amount)}</div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
         {totalsByCategory.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-gray-500">
             {loading ? 'Loading...' : 'No transactions in range'}

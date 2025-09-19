@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { createNewLedger, loadLedgers } from "../features/ledger/ledgerSlice";
 import { fetchCategories, createCategory } from "../services/categories";
+import CategoryManager from "../components/CategoryManager";
 import { setCategoryBudget, updateBudgetPeriod } from "../services/ledgers";
 
 // Categories: bootstrap with presets if user has none
@@ -27,6 +28,7 @@ export default function CreateBudget() {
   const [endDate, setEndDate] = useState("");
   const [allCategories, setAllCategories] = useState([]); // [{id,name,type}]
   const [items, setItems] = useState([]); // [{id, categoryId, amount}]
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const isCategoryTaken = (catId, excludeId) =>
     items.some((entry) => entry.id !== excludeId && entry.categoryId === catId);
 
@@ -38,6 +40,19 @@ export default function CreateBudget() {
     );
     const available = allCategories.find((cat) => !used.has(cat.id));
     return available?.id ?? null;
+  };
+
+  const handleManagedCategories = (list = []) => {
+    const safeList = Array.isArray(list) ? list : [];
+    setAllCategories(safeList);
+    setItems((prev) => prev.map((entry) => {
+      if (entry.categoryId === 'NEW' || entry.categoryId == null) {
+        return entry;
+      }
+      return safeList.some((cat) => cat.id === entry.categoryId)
+        ? entry
+        : { ...entry, categoryId: 'NEW', newName: '' };
+    }));
   };
 
 
@@ -52,11 +67,13 @@ export default function CreateBudget() {
           );
           rows = await fetchCategories('expense');
         }
-        setAllCategories(rows || []);
-        const firstId = rows?.[0]?.id ?? null;
-        setItems([{ id: 1, categoryId: firstId, amount: "" }]);
+        const next = Array.isArray(rows) ? rows : [];
+        const firstId = next.length > 0 ? next[0].id : 'NEW';
+        setItems([{ id: 1, categoryId: firstId, amount: "", newName: '' }]);
+        handleManagedCategories(next);
       } catch (e) {
-        setAllCategories([]);
+        setItems([{ id: 1, categoryId: 'NEW', amount: "", newName: '' }]);
+        handleManagedCategories([]);
       }
     })();
   }, []);
@@ -85,10 +102,12 @@ export default function CreateBudget() {
     if (!name || !name.trim()) return;
     try {
       const created = await createCategory({ name: name.trim(), type: 'expense' });
-      const updated = [...allCategories, created];
-      setAllCategories(updated);
+      if (created?.id) {
+        const updated = [...allCategories.filter((cat) => cat.id !== created.id), created];
+        handleManagedCategories(updated);
+      }
     } catch (e) {
-      // ignore
+      window.alert('Failed to create category');
     }
   };
   const removeItem = (id) => setItems(items.filter((i) => i.id !== id));
@@ -243,6 +262,13 @@ export default function CreateBudget() {
           <div className="mb-4 flex items-center justify-between">
             <label className="text-sm font-medium text-gray-700">Category</label>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCategoryManager(true)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-gray-50"
+              >
+                Manage
+              </button>
               <button
                 type="button"
                 onClick={addNewCategory}

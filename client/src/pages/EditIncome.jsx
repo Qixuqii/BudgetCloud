@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { selectCurrentLedgerId } from '../features/ledger/ledgerSlice';
 import { fetchCategories, createCategory } from '../services/categories';
 import { fetchTransaction, updateTransaction, deleteTransaction } from '../services/transactions';
+import CategoryManager from '../components/CategoryManager';
 import { toYMD } from '../utils/date';
 
 const presetIncomeCategories = [
@@ -28,7 +29,28 @@ export default function EditIncome() {
   const [date, setDate] = useState('');
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState('');
-  const [customName, setCustomName] = useState('');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+
+  const handleManagedCategories = (list = []) => {
+    const safeList = Array.isArray(list) ? list : [];
+    setCategories(safeList);
+    if (categoryId === 'NEW' || categoryId === '' || categoryId == null) {
+      if (safeList.length === 0) {
+        setCategoryId('NEW');
+      }
+      return;
+    }
+    const currentId = Number(categoryId);
+    if (!safeList.some((cat) => cat.id === currentId)) {
+      if (safeList.length > 0) {
+        setCategoryId(safeList[0].id);
+      } else {
+        setCategoryId('NEW');
+        setCustomName('');
+      }
+    }
+  };
+
 
   useEffect(() => {
     (async () => {
@@ -40,7 +62,13 @@ export default function EditIncome() {
           );
           rows = await fetchCategories('income');
         }
-        setCategories(rows || []);
+        const next = Array.isArray(rows) ? rows : [];
+      handleManagedCategories(next);
+      if (next.length === 0) {
+        setCategoryId('NEW');
+      } else if (categoryId === '' || categoryId == null || categoryId === 'NEW') {
+        setCategoryId(next[0].id);
+      }
       } catch {}
     })();
   }, []);
@@ -83,7 +111,15 @@ export default function EditIncome() {
           return;
         }
         const created = await createCategory({ name: customName.trim(), type: 'income' });
-        cid = created?.id;
+        if (created?.id) {
+          const next = [...categories.filter((cat) => cat.id !== created.id), created];
+          handleManagedCategories(next);
+          setCategoryId(created.id);
+          cid = created.id;
+        } else {
+          cid = created?.id;
+        }
+        setCustomName('');
       }
       const noteParts = [title.trim() || 'Income'];
       if (description.trim()) noteParts.push(description.trim());
@@ -149,6 +185,13 @@ export default function EditIncome() {
               <option value="NEW">Custom...</option>
             </select>
           )}
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+          >
+            Manage categories
+          </button>
         </div>
 
         <div className="mb-6">
@@ -169,6 +212,13 @@ export default function EditIncome() {
 
         <button type="submit" className="mt-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700">Update</button>
       </form>
+
+      <CategoryManager
+        type="income"
+        open={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        onChange={handleManagedCategories}
+      />
     </div>
   );
 }

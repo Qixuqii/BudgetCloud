@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { selectCurrentLedgerId } from '../features/ledger/ledgerSlice';
 import { fetchCategories, createCategory } from '../services/categories';
 import { fetchTransaction, updateTransaction, deleteTransaction } from '../services/transactions';
+import CategoryManager from '../components/CategoryManager';
 import { fetchBudgets, setCategoryBudget, updateBudgetPeriod } from '../services/ledgers';
 import { toYMD } from '../utils/date';
 
@@ -23,6 +24,7 @@ export default function EditExpense() {
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState('');
   const [customName, setCustomName] = useState('');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   // Donor selection modal state
   const [donorModal, setDonorModal] = useState(null); // { donors, amount }
   const [donorSelection, setDonorSelection] = useState('');
@@ -41,6 +43,26 @@ export default function EditExpense() {
     closeDonorModal();
   };
 
+  const handleManagedCategories = (list = []) => {
+    const safeList = Array.isArray(list) ? list : [];
+    setCategories(safeList);
+    if (categoryId === 'NEW' || categoryId === '' || categoryId == null) {
+      if (safeList.length === 0) {
+        setCategoryId('NEW');
+      }
+      return;
+    }
+    const currentId = Number(categoryId);
+    if (!safeList.some((cat) => cat.id === currentId)) {
+      if (safeList.length > 0) {
+        setCategoryId(safeList[0].id);
+      } else {
+        setCategoryId('NEW');
+        setCustomName('');
+      }
+    }
+  };
+
   useEffect(() => { (async () => {
     try {
       let rows = await fetchCategories('expense');
@@ -48,7 +70,13 @@ export default function EditExpense() {
         await Promise.allSettled(presetExpenseCategories.map(name => createCategory({ name, type: 'expense' })));
         rows = await fetchCategories('expense');
       }
-      setCategories(rows || []);
+      const next = Array.isArray(rows) ? rows : [];
+      handleManagedCategories(next);
+      if (next.length === 0) {
+        setCategoryId('NEW');
+      } else if (categoryId === '' || categoryId == null || categoryId === 'NEW') {
+        setCategoryId(next[0].id);
+      }
     } catch {}
   })(); }, []);
 
@@ -76,7 +104,15 @@ export default function EditExpense() {
       if (cid === 'NEW') {
         if (!customName.trim()) { window.alert('Please enter a category name'); return; }
         const created = await createCategory({ name: customName.trim(), type: 'expense' });
-        cid = created?.id;
+        if (created?.id) {
+          const next = [...categories.filter((cat) => cat.id !== created.id), created];
+          handleManagedCategories(next);
+          setCategoryId(created.id);
+          cid = created.id;
+        } else {
+          cid = created?.id;
+        }
+        setCustomName('');
       }
       // Ensure selected category has a budget in the current ledger + month
       const period = (String(date || '').slice(0,7) || new Date().toISOString().slice(0,7));
@@ -200,6 +236,13 @@ export default function EditExpense() {
               <option value="NEW">Custom...</option>
             </select>
           )}
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+          >
+            Manage categories
+          </button>
         </div>
         <div className="mb-6">
           <label className="mb-1 block text-xs text-gray-600">Tag</label>
@@ -246,6 +289,13 @@ export default function EditExpense() {
           </div>
         </div>
       )}
+
+      <CategoryManager
+        type="expense"
+        open={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        onChange={handleManagedCategories}
+      />
     </div>
   );
 }

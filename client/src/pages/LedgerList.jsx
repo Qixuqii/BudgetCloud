@@ -5,7 +5,6 @@ import {
   loadLedgers,
   setCurrentLedger,
   selectLedgers,
-  removeLedger,
 } from "../features/ledger/ledgerSlice";
 import { leaveLedgerAction } from "../features/ledger/ledgerSlice";
 import { fetchLedgerDetail } from "../services/ledgers";
@@ -40,11 +39,6 @@ export default function LedgerList() {
         // swallow for now; you may add toast
       }
     }
-  };
-
-  const handleDelete = async (id) => {
-    await dispatch(removeLedger(id));
-    await dispatch(loadLedgers());
   };
 
   const handleLeave = async (id) => {
@@ -164,13 +158,6 @@ export default function LedgerList() {
                     title="Edit"
                   >
                     ✏️
-                  </button>
-                  <button
-                    className="h-9 w-9 rounded-lg hover:bg-gray-100"
-                    aria-label="Delete"
-                    title="Delete"
-                  >
-                    🗑️
                   </button>
                 </div>
                 {/* Inline analysis panel */}
