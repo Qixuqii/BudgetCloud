@@ -1,6 +1,10 @@
 import { db } from "../db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID || undefined);
 
 export const register = async (req, res) => {
     try{
@@ -68,4 +72,48 @@ export const logout = (req, res) => {
         secure:true
     }).status(200).json("User has been logged out.");
 
+};
+
+// Google OAuth login using ID token from @react-oauth/google
+export const googleLogin = async (req, res) => {
+  try {
+    const { credential } = req.body || {};
+    if (!credential) return res.status(400).json("Missing Google credential");
+
+    // Verify Google ID token
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID || undefined });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) return res.status(400).json("Invalid Google token");
+
+    const email = payload.email;
+    const username = payload.name || email.split("@")[0];
+
+    // Find existing user by email
+    const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+
+    let user = users && users[0];
+    if (!user) {
+      // Insert new user with a placeholder password hash (not used for OAuth login)
+      const placeholder = await bcrypt.hash("google-oauth-login", 10);
+      const insertValues = [username, email, placeholder];
+      const insertQ = "INSERT INTO users(`username`, `email`, `password_hash`) VALUES (?)";
+      const result = await db.query(insertQ, [insertValues]);
+      const insertedId = result && result[0] && result[0].insertId;
+      // Fetch the inserted user row
+      const [createdRows] = await db.query("SELECT * FROM users WHERE id = ?", [insertedId]);
+      user = createdRows[0];
+    }
+
+    // Issue our own JWT and httpOnly cookie
+    const token = jwt.sign({ id: user.id }, "jwtkey");
+    const { password_hash, ...other } = user;
+
+    res
+      .cookie("access_token", token, { httpOnly: true })
+      .status(200)
+      .json(other);
+  } catch (err) {
+    console.log("Google login error:", err);
+    return res.status(500).json("Google login failed");
+  }
 };

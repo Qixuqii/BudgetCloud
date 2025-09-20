@@ -21,11 +21,16 @@ export const AuthContextProvider = ({ children }) => {
     setCurrentUser(null);
   };
 
+  const googleLogin = async (credential) => {
+    const res = await axios.post("/api/auth/google", { credential });
+    setCurrentUser(res.data);
+  };
+
   useEffect(() => {
     localStorage.setItem("user", JSON.stringify(currentUser));
   }, [currentUser]);
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, login, logout, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );
