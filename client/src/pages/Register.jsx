@@ -33,18 +33,19 @@ const Register = () => {
 
   return (
     <div className='auth'>
+      <div className='auth-card'>
       <h1>Register</h1>
       <form>
-        <input required type="text" placeholder='username' name='username' onChange={handleChange}/>
-        <input required type="email" placeholder='email' name='email' onChange={handleChange}/>
-        <input required type="password" placeholder='password' name='password' onChange={handleChange}/>
+        <input required type="text" placeholder='Username' name='username' onChange={handleChange}/>
+        <input required type="email" placeholder='Email' name='email' onChange={handleChange}/>
+        <input required type="password" placeholder='Password' name='password' onChange={handleChange}/>
         {/* 这些 <input> 加上了 required，
         所以当你提交 <form> 表单时，如果用户 没有填写这些输入框的内容，浏览器会自动阻止提交，并提示用户补全 */}
         <button onClick={handleSubmit}>Register</button>
-        {err && <p>{err}</p>}
-        <span>Do you have an account? <Link to="/login">Login</Link>
-        </span>
+        {err && <p className='error-text'>{err}</p>}
       </form>
+      <div className='switch-text'>Already have an account? <Link to="/login">Login</Link></div>
+      </div>
     </div>
   )
 }

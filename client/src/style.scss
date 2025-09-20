@@ -25,7 +25,8 @@ $lightGreen : #b9e7e7;
             justify-content: center;;
             height: 100vh;
             // vh = viewport height意思是窗口高度的百分比而不是auth的内容高度
-            background-color: $lightGreen;
+            background: linear-gradient(135deg, rgba(185,231,231,0.35) 0%, #ffffff 60%);
+            padding: 24px;
         }
 
         h1{
@@ -37,10 +38,10 @@ $lightGreen : #b9e7e7;
         .auth form{
             display: flex;
             flex-direction: column;
-            padding: 50px;
-            background-color: white;;
-            width: 200px;
-            gap: 20px;
+            padding: 0;
+            background: transparent;
+            width: 100%;
+            gap: 16px;
 
             input{
                 // 输入框
@@ -68,6 +69,59 @@ $lightGreen : #b9e7e7;
                 text-align: center;;
             }
         }
+
+        // 更宽松的登录/注册 UI 覆盖和卡片样式
+        .auth-card{
+            width: min(92vw, 440px);
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            padding: 40px 36px;
+        }
+
+        .auth-card h1{
+            font-size: 28px;
+            line-height: 1.2;
+            color: teal;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .auth-card form input{
+            padding: 12px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            background: #fff;
+            outline: none;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .auth-card form input:focus{
+            border-color: #14b8a6; // teal-500
+            box-shadow: 0 0 0 3px rgba(20,184,166,0.15);
+        }
+
+        .auth-card form button{
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            background-color: teal;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform .05s ease, background-color .2s ease;
+        }
+        .auth-card form button:hover{ background-color: #0f766e; }
+        .auth-card form button:active{ transform: translateY(1px); }
+
+        .auth-card .error-text{ font-size: 12px; color: #e11d48; text-align: center; }
+        .auth-card .switch-text{ margin-top: 14px; text-align: center; font-size: 13px; color: #6b7280; }
+        .auth-card .switch-text a{ color: #0f766e; font-weight: 600; text-decoration: none; }
+        .auth-card .switch-text a:hover{ text-decoration: underline; }
+
+        .auth-card .oauth-divider{ display: flex; align-items: center; gap: 12px; margin: 16px 0 12px; color: #6b7280; font-size: 12px; }
+        .auth-card .oauth-divider::before,
+        .auth-card .oauth-divider::after{ content: ""; height: 1px; flex: 1; background: #e5e7eb; }
+        .auth-card .google-login{ display: flex; justify-content: center; margin-top: 4px; }
 
         // navbar
 
