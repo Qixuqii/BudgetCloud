@@ -7,6 +7,7 @@ import {
 } from "../features/ledger/ledgerSlice";
 import { formatDateEN } from "../utils/date";
 import Tag from "../components/Tag";
+import BudgetGraph from "../components/BudgetGraph";
 import { getCategoryTheme } from "../utils/categoryTheme";
 
 /* ------------------------ Helpers ------------------------ */
@@ -380,6 +381,9 @@ export default function LedgerDetail() {
           ))}
         </ul>
       </div>
+
+      {/* Budget graph under the tips */}
+      <BudgetGraph categories={categories} />
     </div>
   );
 }
