@@ -5,6 +5,7 @@ import {
   deleteCategoryById,
   updateCategoryName,
 } from "../dao/categoryDao.js";
+import { db } from "../db.js";
 
 /**
  * GET /api/categories?type=income|expense
@@ -12,11 +13,20 @@ import {
 export async function getMyCategories(req, res) {
   try {
     const userId = req.user.id;
-    const { type } = req.query;
+    const { type, ledger_id } = req.query;
     if (type && !["income", "expense"].includes(type)) {
       return res.status(400).json({ message: "Invalid type" });
     }
-    const rows = await listCategoriesByUser(userId, type);
+    // If ledger_id present, ensure requester is a member of the ledger
+    let ledgerId = ledger_id ? Number(ledger_id) : null;
+    if (ledgerId) {
+      const [[member]] = await db.query(
+        `SELECT 1 FROM ledger_members WHERE ledger_id = ? AND user_id = ?`,
+        [ledgerId, userId]
+      );
+      if (!member) return res.status(403).json({ message: 'User is not a member of this ledger' });
+    }
+    const rows = await listCategoriesByUser(userId, type, ledgerId);
     return res.json(rows);
   } catch (e) {
     console.error("getMyCategories error:", e);

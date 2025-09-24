@@ -32,7 +32,7 @@ export default function Incomes() {
   };
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
-  useEffect(() => { (async () => { try { setCategories(await fetchCategories('income') || []); } catch {} })(); }, []);
+  useEffect(() => { (async () => { try { setCategories(await fetchCategories('income', currentLedgerId) || []); } catch {} })(); }, [currentLedgerId]);
   useEffect(() => { load(); }, [currentLedgerId]);
 
   const handleDelete = async (id) => {

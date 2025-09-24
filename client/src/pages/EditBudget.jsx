@@ -71,14 +71,14 @@ export default function EditBudget() {
     (async () => {
       try {
         // Load categories (bootstrap if empty)
-        let cats = await fetchCategories("expense");
+        let cats = await fetchCategories("expense", ledgerId);
         if (!cats || cats.length === 0) {
           await Promise.allSettled(
             presetCategories.map((name) =>
               createCategory({ name, type: "expense" })
             )
           );
-          cats = await fetchCategories("expense");
+          cats = await fetchCategories("expense", ledgerId);
         }
         const safeCats = Array.isArray(cats) ? cats : [];
 
@@ -454,6 +454,7 @@ export default function EditBudget() {
 
       <CategoryManager
         type="expense"
+        ledgerId={ledgerId}
         open={showCategoryManager}
         onClose={() => setShowCategoryManager(false)}
         onChange={handleManagedCategories}

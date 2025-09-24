@@ -5,11 +5,14 @@ export const findTransactions = async (userId, filters) => {
   let query = `
     SELECT t.id, t.amount, t.type, t.note, t.date,
            t.category_id, t.ledger_id,
-           c.name AS category_name, l.name AS ledger_name
+           c.name AS category_name, l.name AS ledger_name,
+           u.id AS created_by_user_id, u.username AS created_by_username
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
     JOIN ledgers l ON t.ledger_id = l.id
-    WHERE t.user_id = ?`;
+    JOIN ledger_members m ON m.ledger_id = t.ledger_id AND m.user_id = ?
+    JOIN users u ON u.id = t.user_id
+    WHERE 1=1`;
   const params = [userId];
 
   if (filters.category_id) {
@@ -50,12 +53,15 @@ export const findTransactionById = async (userId, id) => {
   const q = `
     SELECT t.id, t.amount, t.type, t.note, t.date,
            t.category_id, t.ledger_id,
-           c.name AS category_name, l.name AS ledger_name
+           c.name AS category_name, l.name AS ledger_name,
+           u.id AS created_by_user_id, u.username AS created_by_username
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
     JOIN ledgers l ON t.ledger_id = l.id
-    WHERE t.id = ? AND t.user_id = ?`;
-  const [rows] = await db.query(q, [id, userId]);
+    JOIN ledger_members m ON m.ledger_id = t.ledger_id AND m.user_id = ?
+    JOIN users u ON u.id = t.user_id
+    WHERE t.id = ?`;
+  const [rows] = await db.query(q, [userId, id]);
   return rows[0];
 };
 
@@ -70,8 +76,9 @@ export const insertTransaction = async (userId, { ledger_id, category_id, amount
 
 // 删除交易
 export const removeTransaction = async (userId, id) => {
-  const q = `DELETE FROM transactions WHERE user_id = ? AND id = ?`;
-  const [result] = await db.query(q, [userId, id]);
+  // Controller enforces role and membership; here delete by id only
+  const q = `DELETE FROM transactions WHERE id = ?`;
+  const [result] = await db.query(q, [id]);
   return result;
 };
 
@@ -79,7 +86,7 @@ export const removeTransaction = async (userId, id) => {
 export const updateTransactionById = async (userId, id, fields) => {
   const setClause = Object.keys(fields).map(key => `${key} = ?`).join(", ");
   const values = Object.values(fields);
-  const q = `UPDATE transactions SET ${setClause} WHERE user_id = ? AND id = ?`;
-  const [result] = await db.query(q, [...values, userId, id]);
+  const q = `UPDATE transactions SET ${setClause} WHERE id = ?`;
+  const [result] = await db.query(q, [...values, id]);
   return result;
 };

@@ -65,9 +65,9 @@ export const addTransaction = async (req, res) => {
             const [[sumRow]] = await db.query(
               `SELECT COALESCE(SUM(amount),0) AS spent
                FROM transactions
-               WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
+               WHERE ledger_id = ? AND category_id = ? AND type = 'expense'
                  AND date >= ? AND date <= ?`,
-              [userId, ledger_id, category_id, bp.start_date, bp.end_date]
+              [ledger_id, category_id, bp.start_date, bp.end_date]
             );
             const spent = Number(sumRow?.spent || 0);
             const limitAmt = Number(lim.limit_amt || 0);
@@ -96,6 +96,18 @@ export const addTransaction = async (req, res) => {
 
 export const deleteTransaction = async (req, res) => {
   try {
+    // Ensure requester is member with sufficient role
+    const current = await findTransactionById(req.user.id, req.params.id);
+    if (!current) return res.status(404).json({ message: "Transaction not found" });
+
+    const [[roleRow]] = await db.query(
+      `SELECT role FROM ledger_members WHERE ledger_id = ? AND user_id = ?`,
+      [current.ledger_id, req.user.id]
+    );
+    if (!roleRow || !['owner','editor'].includes(roleRow.role)) {
+      return res.status(403).json({ message: "You do not have permission to perform this action." });
+    }
+
     const result = await removeTransaction(req.user.id, req.params.id);
     if (result.affectedRows === 0) return res.status(404).json({ message: "Transaction not found" });
     return res.status(200).json({ message: "Transaction deleted successfully" });
@@ -129,6 +141,14 @@ export const updateTransaction = async (req, res) => {
         const newAmount = Number(fields.amount ?? current.amount);
         const newType = fields.type ?? current.type;
         const newDate = String(fields.date ?? current.date);
+        // Role enforcement for update on target ledger
+        const [[roleRow]] = await db.query(
+          `SELECT role FROM ledger_members WHERE ledger_id = ? AND user_id = ?`,
+          [newLedger, userId]
+        );
+        if (!roleRow || !['owner','editor'].includes(roleRow.role)) {
+          return res.status(403).json({ message: "You do not have permission to perform this action." });
+        }
         if (newType === 'expense') {
           try {
             const period = newDate.slice(0,7);
@@ -145,9 +165,9 @@ export const updateTransaction = async (req, res) => {
                 const [[sumRow]] = await db.query(
                   `SELECT COALESCE(SUM(amount),0) AS spent
                    FROM transactions
-                   WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
+                   WHERE ledger_id = ? AND category_id = ? AND type = 'expense'
                      AND date >= ? AND date <= ? AND id <> ?`,
-                  [userId, newLedger, newCategory, bp.start_date, bp.end_date, transactionId]
+                  [newLedger, newCategory, bp.start_date, bp.end_date, transactionId]
                 );
                 const spentExcl = Number(sumRow?.spent || 0);
                 const limitAmt = Number(lim.limit_amt || 0);

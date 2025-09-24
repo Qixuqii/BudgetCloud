@@ -7,7 +7,7 @@ function formatError(err) {
   return message;
 }
 
-export default function CategoryManager({ type = 'expense', open = false, onClose, onChange }) {
+export default function CategoryManager({ type = 'expense', ledgerId, open = false, onClose, onChange }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function CategoryManager({ type = 'expense', open = false, onClos
     setLoading(true);
     setError('');
     try {
-      const rows = await fetchCategories(type);
+      const rows = await fetchCategories(type, ledgerId);
       const list = Array.isArray(rows) ? rows : [];
       setCategories(list);
       onChange?.(list);

@@ -65,10 +65,10 @@ export default function EditExpense() {
 
   useEffect(() => { (async () => {
     try {
-      let rows = await fetchCategories('expense');
+      let rows = await fetchCategories('expense', currentLedgerId);
       if (!rows || rows.length === 0) {
         await Promise.allSettled(presetExpenseCategories.map(name => createCategory({ name, type: 'expense' })));
-        rows = await fetchCategories('expense');
+        rows = await fetchCategories('expense', currentLedgerId);
       }
       const next = Array.isArray(rows) ? rows : [];
       handleManagedCategories(next);
@@ -292,6 +292,7 @@ export default function EditExpense() {
 
       <CategoryManager
         type="expense"
+        ledgerId={currentLedgerId}
         open={showCategoryManager}
         onClose={() => setShowCategoryManager(false)}
         onChange={handleManagedCategories}

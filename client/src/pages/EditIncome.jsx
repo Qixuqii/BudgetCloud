@@ -55,12 +55,12 @@ export default function EditIncome() {
   useEffect(() => {
     (async () => {
       try {
-        let rows = await fetchCategories('income');
+        let rows = await fetchCategories('income', currentLedgerId);
         if (!rows || rows.length === 0) {
           await Promise.allSettled(
             presetIncomeCategories.map((name) => createCategory({ name, type: 'income' }))
           );
-          rows = await fetchCategories('income');
+          rows = await fetchCategories('income', currentLedgerId);
         }
         const next = Array.isArray(rows) ? rows : [];
       handleManagedCategories(next);
@@ -215,6 +215,7 @@ export default function EditIncome() {
 
       <CategoryManager
         type="income"
+        ledgerId={currentLedgerId}
         open={showCategoryManager}
         onClose={() => setShowCategoryManager(false)}
         onChange={handleManagedCategories}
