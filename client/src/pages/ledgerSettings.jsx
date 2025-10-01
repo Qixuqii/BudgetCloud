@@ -34,7 +34,7 @@ export default function LedgerSettings() {
   const { currentUser } = useContext(AuthContext);
 
   const [name, setName] = useState("");
-  const [inviteUserId, setInviteUserId] = useState("");
+  const [inviteUsername, setInviteUsername] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
   const [showTransfer, setShowTransfer] = useState(false);
   const [newOwnerMemberId, setNewOwnerMemberId] = useState("");
@@ -65,14 +65,14 @@ export default function LedgerSettings() {
   };
 
   const handleInvite = async () => {
-    if (!inviteUserId) return;
+    if (!inviteUsername?.trim()) return;
     await dispatch(
       inviteLedgerMember({
         id: effectiveLedgerId,
-        payload: { user_id: Number(inviteUserId), role: inviteRole },
+        payload: { username: inviteUsername.trim(), role: inviteRole },
       })
     );
-    setInviteUserId("");
+    setInviteUsername("");
     setInviteRole("viewer");
     refreshMembers();
   };
@@ -226,11 +226,10 @@ export default function LedgerSettings() {
           {/* Invite */}
           <div className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <input
-              type="number"
-              min="1"
-              value={inviteUserId}
-              onChange={(e) => setInviteUserId(e.target.value)}
-              placeholder="User ID to invite"
+              type="text"
+              value={inviteUsername}
+              onChange={(e) => setInviteUsername(e.target.value)}
+              placeholder="Username to invite"
               className="w-56 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               disabled={!canManage}
             />
@@ -246,7 +245,7 @@ export default function LedgerSettings() {
             <button
               onClick={handleInvite}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-              disabled={!canManage || !inviteUserId}
+              disabled={!canManage || !inviteUsername?.trim()}
             >
               Invite Member
             </button>

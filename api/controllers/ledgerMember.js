@@ -18,14 +18,31 @@ export const getLedgerMembers = async (req, res) => {
 
 export const addLedgerMember = async (req, res) => {
     const ledgerId = req.params.ledgerId;
-    const { user_id, role = "viewer" } = req.body;
-
-    if (!user_id) {
-        return res.status(400).json({ message: "user_id is required" });
-    }
+    const { username, user_id, role = "viewer" } = req.body || {};
 
     try {
-        await insertLedgerMember(ledgerId, user_id, role);
+        let targetUserId = null;
+        if (username && typeof username === 'string' && username.trim()) {
+            const uname = username.trim();
+            const [[u]] = await db.query(`SELECT id FROM users WHERE username = ?`, [uname]);
+            if (!u) return res.status(404).json({ message: "User not found" });
+            targetUserId = Number(u.id);
+        } else if (user_id) {
+            targetUserId = Number(user_id);
+        } else {
+            return res.status(400).json({ message: "username is required" });
+        }
+
+        // Prevent duplicates for clearer response than generic DB error
+        const [[exists]] = await db.query(
+            `SELECT id FROM ledger_members WHERE ledger_id = ? AND user_id = ?`,
+            [ledgerId, targetUserId]
+        );
+        if (exists) {
+            return res.status(409).json({ message: "User is already a member" });
+        }
+
+        await insertLedgerMember(ledgerId, targetUserId, role);
         return res.status(201).json({ message: "Ledger member added successfully" });
     } catch (err) {
         console.error("addLedgerMember error:", err);
