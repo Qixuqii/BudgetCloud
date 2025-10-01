@@ -13,6 +13,7 @@ const Navbar = () => {
       <div className="container">
         <div className="logo">
           <img src={logo} alt="" />
+          <span className="brand">Budget Tracker</span>
         </div>
         <div className="links">
           <Link className="link" to="/?cat=art">
@@ -35,19 +36,21 @@ const Navbar = () => {
           <Link className="link" to="/ledgers">
             <h6>Budget</h6>
           </Link>
-          <span>{currentUser?.username}</span>
           {currentUser ? (
-            <span onClick={logout}>Logout</span>
+            <div className="user" title={currentUser?.username}>
+              <span className="initial">{String(currentUser?.username || 'G').slice(0,1).toUpperCase()}</span>
+              <button className="logout" onClick={logout}>Logout</button>
+            </div>
           ) : (
             <Link className="link" to="/login">
               Login
             </Link>
           )}
-          <span className="write">
+          {/* <span className="write">
             <Link className="link" to="/write">
               Write
             </Link>
-          </span>
+          </span> */}
         </div>
       </div>
     </div>

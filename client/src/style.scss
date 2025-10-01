@@ -127,14 +127,26 @@ $lightGreen : #b9e7e7;
 
         .navbar{
             .container{
-                padding: 10px 0px;
+                
+                padding: 20px;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 // 两端对齐
                 .logo{
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
                     img{
-                        width:120px;
+                        width:50px;
+                        height: auto;
+                        display: block;
+                    }
+                    .brand{
+                        font-weight: 700;
+                        font-size: 18px;
+                        letter-spacing: 0.3px;
+                        color: #0f172a; // slate-900
                     }
                 }
                 .links{
@@ -152,6 +164,33 @@ $lightGreen : #b9e7e7;
                     span{
                         cursor: pointer;
                     }
+                    .user{
+                        position: relative;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    .user .initial{
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 36px; height: 36px;
+                        border-radius: 50%;
+                        background: #f3f4f6; // gray-100
+                        // color: #374151; // gray-700
+                        color: teal;
+                        font-weight: 700;
+                    }
+                    .user .logout{
+                        display: none;
+                        background: #ffffff;
+                        border: 1px solid #e5e7eb;
+                        border-radius: 8px;
+                        padding: 6px 10px;
+                        color: #6b7280; // gray-500
+                        cursor: pointer;
+                    }
+                    .user:hover .logout{ display: inline-flex; }
                     .write{
                         background-color: $lightGreen;
                         width: 50px;
