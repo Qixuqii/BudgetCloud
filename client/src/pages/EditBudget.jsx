@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import { saveLedger, loadLedgers } from "../features/ledger/ledgerSlice";
+import { saveLedger, loadLedgers, setCurrentLedger } from "../features/ledger/ledgerSlice";
 import { fetchCategories, createCategory } from "../services/categories";
 import {
   fetchLedgerDetail,
@@ -179,10 +179,14 @@ export default function EditBudget() {
       return;
     }
     try {
-      // Update ledger name
-      await dispatch(
-        saveLedger({ id: ledgerId, changes: { name: title.trim() } })
-      ).unwrap();
+      // Update ledger name (owner only). If not owner (403), ignore and continue.
+      try {
+        await dispatch(
+          saveLedger({ id: ledgerId, changes: { name: title.trim() } })
+        ).unwrap();
+      } catch (_) {
+        // Swallow rename errors for non-owners so budget editing still works
+      }
 
       // Prepare budgets (create custom categories if any), aggregate by category
       const prepared = [];
@@ -240,8 +244,11 @@ export default function EditBudget() {
       if (ops.length) await Promise.all(ops);
 
       await dispatch(loadLedgers());
+      // Ensure global current ledger points to the edited one
+      dispatch(setCurrentLedger(ledgerId));
       window.alert("Budget updated successfully");
-      navigate(`/ledgers/${ledgerId}`);
+      // Go back to Budgets list page and reflect latest data
+      navigate('/ledgers');
     } catch (err) {
       window.alert("Failed to update budget");
     }

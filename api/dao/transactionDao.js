@@ -3,7 +3,8 @@ import { db } from "../db.js";
 // 获取多条交易（支持条件过滤）
 export const findTransactions = async (userId, filters) => {
   let query = `
-    SELECT t.id, t.amount, t.type, t.note, t.date,
+    SELECT t.id, t.amount, t.type, t.note,
+           DATE_FORMAT(t.date, '%Y-%m-%d') AS date,
            t.category_id, t.ledger_id,
            c.name AS category_name, l.name AS ledger_name,
            u.id AS created_by_user_id, u.username AS created_by_username
@@ -40,7 +41,8 @@ export const findTransactions = async (userId, filters) => {
     params.push(filters.start_date);
   }
   if (filters.end_date) {
-    query += " AND t.date <= ?";
+    // Use end-exclusive to avoid missing records with time components on the end day
+    query += " AND t.date < DATE_ADD(?, INTERVAL 1 DAY)";
     params.push(filters.end_date);
   }
 
@@ -67,7 +69,8 @@ export const findTransactions = async (userId, filters) => {
 // 获取单条交易
 export const findTransactionById = async (userId, id) => {
   const q = `
-    SELECT t.id, t.amount, t.type, t.note, t.date,
+    SELECT t.id, t.amount, t.type, t.note,
+           DATE_FORMAT(t.date, '%Y-%m-%d') AS date,
            t.category_id, t.ledger_id,
            c.name AS category_name, l.name AS ledger_name,
            u.id AS created_by_user_id, u.username AS created_by_username

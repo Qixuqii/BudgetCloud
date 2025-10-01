@@ -111,7 +111,9 @@ export default function LedgerSettings() {
     () => (members || []).find((m) => m.user_id === currentUser?.id) || null,
     [members, currentUser]
   );
-  const amOwner = myMemberRow?.role === "owner";
+  const myRole = myMemberRow?.role || 'viewer';
+  const amOwner = myRole === "owner";
+  const canRename = myRole === 'owner' || myRole === 'editor';
   const canManage = amOwner; // only owners manage membership
 
   const handleLeave = async () => {
@@ -151,18 +153,18 @@ export default function LedgerSettings() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Ledger name"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              disabled={!amOwner}
+              disabled={!canRename}
             />
             <button
               onClick={handleRename}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-              disabled={!amOwner}
+              disabled={!canRename}
             >
               Save
             </button>
           </div>
-          {!amOwner && (
-            <div className="mt-2 text-xs text-gray-500">Only owners can rename.</div>
+          {!canRename && (
+            <div className="mt-2 text-xs text-gray-500">Only owner or editor can rename.</div>
           )}
         </div>
 

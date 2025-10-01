@@ -8,7 +8,8 @@ export default function CategoryBarChart({ data = [], height = 320 }) {
     const top = 32;
     const bottom = 36;
     const left = 180;
-    const right = 32;
+    // Give more room on the right for value labels so they are not clipped
+    const right = 120;
     const rowGap = 36;
     const barHeight = 22;
     const chartHeight = Math.max(height, top + bottom + items.length * rowGap);

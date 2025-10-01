@@ -256,10 +256,11 @@ export default function LedgerDetail() {
   const currentId = useSelector(selectCurrentLedgerId);
   const ledger = useSelector(selectCurrentLedger);
   const [view, setView] = useState("cards"); // 'cards' | 'table'
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
-    if (currentId) dispatch(loadLedgerDetail(currentId));
-  }, [currentId, dispatch]);
+    if (currentId) dispatch(loadLedgerDetail({ id: currentId, period: month }));
+  }, [currentId, month, dispatch]);
 
   const periodText = useMemo(() => {
     if (!ledger?.period) return "";
@@ -294,6 +295,16 @@ export default function LedgerDetail() {
           )}
         </div>
         <div className="text-right">
+          <div className="mb-2 flex items-center justify-end gap-2">
+            <label className="text-xs text-gray-500" htmlFor="ledger-month-picker">Month</label>
+            <input
+              id="ledger-month-picker"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
           <div className="text-sm text-gray-600">{periodText}</div>
           <div className="mt-3 inline-flex overflow-hidden rounded-xl border border-gray-200">
             {/* Cards view button */}

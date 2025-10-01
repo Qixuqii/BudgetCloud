@@ -20,9 +20,15 @@ export function formatDateEN(input) {
     if (input instanceof Date) {
       d = input;
     } else {
-      const s = String(input).slice(0, 10).replace(/\//g, '-');
-      // Prefer YYYY-MM-DD if present
-      d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00`) : new Date(input);
+      const raw = String(input);
+      // If it's a full ISO string (contains 'T'), parse directly to preserve timezone offset
+      if (raw.includes('T')) {
+        d = new Date(raw);
+      } else {
+        // Normalize separators and prefer YYYY-MM-DD as local date
+        const s = raw.slice(0, 10).replace(/\//g, '-');
+        d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00`) : new Date(raw);
+      }
     }
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const m = months[d.getMonth()];
@@ -54,4 +60,3 @@ export function formatMonthEN(input) {
     return '';
   }
 }
-

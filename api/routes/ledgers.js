@@ -36,7 +36,8 @@ router.get("/:ledgerId", verifyToken, checkLedgerRole(), getLedger);
  * 修改账本名称（仅 owner）
  * PATCH /api/ledgers/:ledgerId
  */
-router.patch("/:ledgerId", verifyToken, checkLedgerRole(["owner"]), renameLedger);
+// Allow owner and editor to rename ledger
+router.patch("/:ledgerId", verifyToken, checkLedgerRole(["owner","editor"]), renameLedger);
 
 /**
  * 删除账本（仅 owner）

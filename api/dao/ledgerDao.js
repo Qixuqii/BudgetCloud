@@ -132,10 +132,11 @@ export async function getLedgerById(ledgerId, userId) {
   };
 }
 
-export async function updateLedgerName(ledgerId, ownerId, newName) {
+export async function updateLedgerName(ledgerId, userId, newName) {
+  // Role check is enforced by route middleware; update by id only
   const [res] = await db.query(
-    "UPDATE ledgers SET name = ? WHERE id = ? AND owner_id = ?",
-    [newName, ledgerId, ownerId]
+    "UPDATE ledgers SET name = ? WHERE id = ?",
+    [newName, ledgerId]
   );
   return res.affectedRows > 0;
 }

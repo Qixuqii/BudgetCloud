@@ -153,9 +153,10 @@ export default function LedgerList() {
                 <div className="flex items-center justify-end gap-2 sm:col-span-1">
                   <button
                     onClick={() => navigate(`/ledgers/${l.id}/edit`)}
-                    className="h-9 w-9 rounded-lg hover:bg-gray-100"
+                    className={`h-9 w-9 rounded-lg ${l.myRole === 'viewer' ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}`}
                     aria-label="Edit"
-                    title="Edit"
+                    title={l.myRole === 'viewer' ? 'Viewer cannot edit' : 'Edit'}
+                    disabled={l.myRole === 'viewer'}
                   >
                     ✏️
                   </button>

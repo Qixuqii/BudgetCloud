@@ -14,8 +14,10 @@ export const loadLedgers = createAsyncThunk('ledger/loadLedgers', async () => {
 // 获取指定账本的详情（交易汇总、预算进度、AI 总结等）
 export const loadLedgerDetail = createAsyncThunk(
   'ledger/loadLedgerDetail',
-  async (id) => {
-    const data = await api.fetchLedgerDetail(id);
+  async (arg) => {
+    const id = (arg && typeof arg === 'object') ? arg.id : arg;
+    const period = (arg && typeof arg === 'object') ? arg.period : undefined;
+    const data = await api.fetchLedgerDetail(id, period);
     return data;              // {id, name, summary, budgetLimits, aiSummary, members...}
   }
 );
