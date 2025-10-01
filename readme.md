@@ -166,6 +166,6 @@
 
 <!-- # category 和 calendar 都要可以选择 budget 一个的 select 不要显示，calendar 要求可以选择全部 -->
 
-# 要求同一个 budget 下的人需要共享所有数据，包括每一条 income 和 expense，UI shows who created it. 我目前这个还是空的，只能看到 budget 下的详情，并且在修改 budget 的时候 categories 也是空的 要求在同一个 budget 下的用户可以看到这个 budget 的所有数据，然后也能知道这个是谁创立的
+<!-- # 要求同一个 budget 下的人需要共享所有数据，包括每一条 income 和 expense，UI shows who created it. 我目前这个还是空的，只能看到 budget 下的详情，并且在修改 budget 的时候 categories 也是空的 要求在同一个 budget 下的用户可以看到这个 budget 的所有数据，然后也能知道这个是谁创立的 -->
 
 # react node.js AI-generated summary 网页怎么做详细的给我说

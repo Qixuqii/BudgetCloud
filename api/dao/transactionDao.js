@@ -44,6 +44,22 @@ export const findTransactions = async (userId, filters) => {
     params.push(filters.end_date);
   }
 
+  // Optional ordering and limiting for use cases like "recent transactions"
+  // Only apply when explicitly requested via filters to avoid changing existing behaviors
+  const orderBy = (filters.order_by || '').toString().toLowerCase();
+  const orderDir = (filters.order || filters.sort || 'desc').toString().toLowerCase();
+  const dir = orderDir === 'asc' ? 'ASC' : 'DESC';
+
+  if (orderBy === 'date') {
+    query += ` ORDER BY t.date ${dir}, t.id ${dir}`;
+  }
+
+  const lim = parseInt(filters.limit, 10);
+  if (!Number.isNaN(lim) && lim > 0) {
+    query += ` LIMIT ?`;
+    params.push(lim);
+  }
+
   const [rows] = await db.query(query, params);
   return rows;
 };

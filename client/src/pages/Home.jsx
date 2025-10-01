@@ -4,6 +4,7 @@ import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } f
 import { fetchTransactions } from "../services/transactions";
 import StackedBarChart from "../components/StackedBarChart";
 import CombinedCategoryDonut from "../components/CombinedCategoryDonut";
+import { formatDateEN } from "../utils/date";
 
 function monthBoundaries(offset = 0) {
   const now = new Date();
@@ -35,6 +36,7 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [txCurr, setTxCurr] = useState({ income: [], expense: [] });
   const [txPrev, setTxPrev] = useState({ income: [], expense: [] });
+  const [recentTx, setRecentTx] = useState([]);
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
 
@@ -45,14 +47,17 @@ const Home = () => {
     (async () => {
       setLoading(true);
       try {
-        const [ci, cee, pi, pee] = await Promise.all([
+        const [ci, cee, pi, pee, recentList] = await Promise.all([
           fetchTransactions({ ledger_id: currentLedgerId, start_date: cs, end_date: ce, type: 'income' }),
           fetchTransactions({ ledger_id: currentLedgerId, start_date: cs, end_date: ce, type: 'expense' }),
           fetchTransactions({ ledger_id: currentLedgerId, start_date: ps, end_date: pe, type: 'income' }),
           fetchTransactions({ ledger_id: currentLedgerId, start_date: ps, end_date: pe, type: 'expense' }),
+          // Recent 10 transactions across all time (by date desc)
+          fetchTransactions({ ledger_id: currentLedgerId, limit: 10, order_by: 'date', order: 'desc' }),
         ]);
         setTxCurr({ income: ci || [], expense: cee || [] });
         setTxPrev({ income: pi || [], expense: pee || [] });
+        setRecentTx(recentList || []);
       } finally { setLoading(false); }
     })();
   }, [currentLedgerId]);
@@ -106,6 +111,19 @@ const Home = () => {
     arr.sort((a,b) => b.value - a.value);
     return arr.slice(0, 5);
   }, [txCurr.income]);
+
+  // Recent combined transactions (latest 10 across all dates)
+  const recent = useMemo(() => {
+    const list = [...(recentTx || [])]
+      .sort((a, b) => {
+        const da = new Date(a.date || 0).getTime();
+        const db = new Date(b.date || 0).getTime();
+        if (db !== da) return db - da;
+        return (b.id || 0) - (a.id || 0);
+      })
+      .slice(0, 10);
+    return list;
+  }, [recentTx]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -179,6 +197,61 @@ const Home = () => {
             // sort by total desc, take top 6 for readability
             return Array.from(map.values()).sort((a,b)=> (b.income+b.expense) - (a.income+a.expense)).slice(0,6);
           }, [txCurr])} />
+        </div>
+      </div>
+
+      {/* Last incoming / recent activity */}
+      <div className="mt-6 rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
+        <div className="mb-3 text-sm font-semibold text-gray-900">Last incoming</div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-y-0">
+            <thead>
+              <tr className="text-left text-xs text-gray-500">
+                <th className="px-3 py-2 font-medium">Username</th>
+                <th className="px-3 py-2 font-medium">Name</th>
+                <th className="px-3 py-2 font-medium">Time</th>
+                <th className="px-3 py-2 font-medium">Budget</th>
+                <th className="px-3 py-2 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm text-gray-800">
+              {recent.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-gray-500" colSpan={5}>
+                    No recent transactions
+                  </td>
+                </tr>
+              ) : (
+                recent.map((t, idx) => {
+                  const initial = String(t.created_by_username || "?").slice(0, 1).toUpperCase();
+                  const amt = Number(t.amount || 0);
+                  const cls = t.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
+                  return (
+                    <tr key={`${t.id || 'row'}-${idx}`} className="border-t border-gray-200">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
+                            {initial}
+                          </div>
+                          <div className="font-medium">{t.created_by_username || 'Unknown'}</div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        {t.note || t.category_name || (t.type === 'income' ? 'Income' : 'Expense')}
+                      </td>
+                      <td className="px-3 py-3">{formatDateEN(t.date)}</td>
+                      <td className="px-3 py-3">{t.ledger_name || ''}</td>
+                      <td className="px-3 py-3 text-right">
+                        <span className={`font-semibold ${cls}`}>
+                          {t.type === 'income' ? '+' : '-'}${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
