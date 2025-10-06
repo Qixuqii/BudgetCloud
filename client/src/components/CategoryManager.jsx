@@ -129,7 +129,7 @@ export default function CategoryManager({ type = 'expense', ledgerId, open = fal
             <div className="py-6 text-center text-sm text-slate-500">Loading...</div>
           )}
           {!loading && error && (
-            <div className="py-3 text-center text-xs text-rose-600">{error}</div>
+            <div className="py-3 text-center text-xs text-rose-600">{String(error)}</div>
           )}
           {!loading && !error && categories.length === 0 && (
             <div className="py-6 text-center text-sm text-slate-500">No categories yet.</div>

@@ -26,6 +26,7 @@ import AddExpense from "./pages/AddExpense";
 import EditExpense from "./pages/EditExpense";
 import CategoryAnalytics from "./pages/CategoryAnalytics";
 import CalendarPage from "./pages/Calendar";
+import RouteError from "./components/RouteError";
 
 const Layout = () => {
   return (
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
+    errorElement: <RouteError />,
     children: [
       {
         path: "/",

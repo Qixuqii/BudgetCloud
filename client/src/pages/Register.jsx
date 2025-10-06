@@ -8,6 +8,15 @@ const Register = () => {
 
   const [err, setErr] = useState(null)
 
+  const toErrMsg = (e, fallback = 'Register failed') => {
+    const data = e?.response?.data;
+    if (typeof data === 'string') return data;
+    if (data && typeof data === 'object') {
+      return data.message || data.error || fallback;
+    }
+    return e?.message || fallback;
+  };
+
   const [inputs, setInputs] = useState({
     username:"",
     email:"",
@@ -27,7 +36,7 @@ const Register = () => {
       console.log("###",rst)
       navigate("/login")
     }catch(err){
-      setErr(err.response.data)
+      setErr(toErrMsg(err))
     }
   }
 
@@ -42,7 +51,7 @@ const Register = () => {
         {/* 这些 <input> 加上了 required，
         所以当你提交 <form> 表单时，如果用户 没有填写这些输入框的内容，浏览器会自动阻止提交，并提示用户补全 */}
         <button onClick={handleSubmit}>Register</button>
-        {err && <p className='error-text'>{err}</p>}
+        {err && <p className='error-text'>{String(err)}</p>}
       </form>
       <div className='switch-text'>Already have an account? <Link to="/login">Login</Link></div>
       </div>
