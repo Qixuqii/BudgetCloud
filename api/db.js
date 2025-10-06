@@ -13,7 +13,7 @@ const sslConfig = (() => {
   try { return { ca: fs.readFileSync(p, "utf8") }; } catch { return undefined; }
 })();
 
-export const db = await mysql.createPool({
+const dbConfig = {
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
@@ -23,6 +23,10 @@ export const db = await mysql.createPool({
   connectionLimit: Number(process.env.DB_CONN_LIMIT || 10),
   queueLimit: 0,
   ssl: sslConfig,
-});
+};
+
+console.log("DB config:", { ...dbConfig, password: "***" }); // eslint-disable-line no-console
+
+export const db = await mysql.createPool(dbConfig);
 
 
