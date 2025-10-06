@@ -1,7 +1,17 @@
 import fs from "fs";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
-dotenv.config({ path: "/home/ubuntu/apps/Budget/server/.env" });
+
+// Load environment from nearest .env if present; avoid hard-coded paths.
+// If process.env is already populated (via "import 'dotenv/config'" in index.js),
+// this is a no-op.
+dotenv.config();
+
+const sslConfig = (() => {
+  const p = process.env.DB_SSL_CA_PATH;
+  if (!p) return undefined;
+  try { return { ca: fs.readFileSync(p, "utf8") }; } catch { return undefined; }
+})();
 
 export const db = await mysql.createPool({
   host: process.env.DB_HOST,
@@ -12,7 +22,7 @@ export const db = await mysql.createPool({
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONN_LIMIT || 10),
   queueLimit: 0,
-  ssl: { ca: fs.readFileSync(process.env.DB_SSL_CA_PATH, "utf8") }
+  ssl: sslConfig,
 });
 
 

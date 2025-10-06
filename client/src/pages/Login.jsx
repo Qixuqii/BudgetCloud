@@ -14,6 +14,7 @@ const Login = () => {
   const [err, setErr] = useState(null);
 
   const { login, googleLogin } = useContext(AuthContext);
+  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   const toErrMsg = (e, fallback = 'Login failed') => {
     const data = e?.response?.data;
@@ -65,10 +66,14 @@ const Login = () => {
         <div className='oauth-divider'><span>or</span></div>
 
         <div className='google-login'>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setErr('Google sign-in failed, please try again')}
-          />
+          {googleEnabled ? (
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setErr('Google sign-in failed, please try again')}
+            />
+          ) : (
+            <p className='error-text' style={{ color: '#888' }}>Google login is not configured</p>
+          )}
         </div>
 
         <div className='switch-text'>

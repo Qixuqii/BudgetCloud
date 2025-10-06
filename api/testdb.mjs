@@ -2,11 +2,17 @@ import fs from 'fs';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
-// 明确使用 server 目录下的 .env
-dotenv.config({ path: '/home/ubuntu/apps/Budget/server/.env' });
+// Load local .env if present
+dotenv.config();
 
 async function main() {
   try {
+    const ssl = (() => {
+      const p = process.env.DB_SSL_CA_PATH;
+      if (!p) return undefined;
+      try { return { ca: fs.readFileSync(p, 'utf8') }; } catch { return undefined; }
+    })();
+
     const pool = await mysql.createPool({
       host: process.env.DB_HOST,
       port: Number(process.env.DB_PORT || 3306),
@@ -16,7 +22,7 @@ async function main() {
       waitForConnections: true,
       connectionLimit: Number(process.env.DB_CONN_LIMIT || 10),
       queueLimit: 0,
-      ssl: { ca: fs.readFileSync(process.env.DB_SSL_CA_PATH, 'utf8') }
+      ssl
     });
 
     const [rows] = await pool.query('SELECT COUNT(*) AS n FROM users');
