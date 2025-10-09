@@ -50,12 +50,19 @@ export const addTransaction = async (req, res) => {
     if (type === 'expense' && !allow_exceed) {
       try {
         const period = String(date).slice(0, 7); // YYYY-MM
-        // Find budget period for the ledger and month
+        // Find budget period for the ledger and month (exact start_date match)
         const [[bp]] = await db.query(
-          `SELECT id, start_date, end_date FROM budget_periods WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
-          [ledger_id, period]
+          `SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?`,
+          [ledger_id, `${period}-01`]
         );
         if (bp) {
+          // Compute safe local month boundaries
+          const [yy, mm] = period.split('-').map(Number);
+          const pad = (n) => String(n).padStart(2, '0');
+          const startStr = `${yy}-${pad(mm)}-01`;
+          const nextY = mm === 12 ? yy + 1 : yy;
+          const nextM = mm === 12 ? 1 : mm + 1;
+          const nextStr = `${nextY}-${pad(nextM)}-01`;
           // Get category limit (if any)
           const [[lim]] = await db.query(
             `SELECT limit_amt FROM budget_limits WHERE period_id = ? AND category_id = ?`,
@@ -66,8 +73,8 @@ export const addTransaction = async (req, res) => {
               `SELECT COALESCE(SUM(amount),0) AS spent
                FROM transactions
                WHERE ledger_id = ? AND category_id = ? AND type = 'expense'
-                 AND date >= ? AND date <= ?`,
-              [ledger_id, category_id, bp.start_date, bp.end_date]
+                 AND date >= ? AND date < ?`,
+              [ledger_id, category_id, startStr, nextStr]
             );
             const spent = Number(sumRow?.spent || 0);
             const limitAmt = Number(lim.limit_amt || 0);
@@ -153,10 +160,16 @@ export const updateTransaction = async (req, res) => {
           try {
             const period = newDate.slice(0,7);
             const [[bp]] = await db.query(
-              `SELECT id, start_date, end_date FROM budget_periods WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
-              [newLedger, period]
+              `SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?`,
+              [newLedger, `${period}-01`]
             );
             if (bp) {
+              const [yy, mm] = period.split('-').map(Number);
+              const pad = (n) => String(n).padStart(2, '0');
+              const startStr = `${yy}-${pad(mm)}-01`;
+              const nextY = mm === 12 ? yy + 1 : yy;
+              const nextM = mm === 12 ? 1 : mm + 1;
+              const nextStr = `${nextY}-${pad(nextM)}-01`;
               const [[lim]] = await db.query(
                 `SELECT limit_amt FROM budget_limits WHERE period_id = ? AND category_id = ?`,
                 [bp.id, newCategory]
@@ -166,8 +179,8 @@ export const updateTransaction = async (req, res) => {
                   `SELECT COALESCE(SUM(amount),0) AS spent
                    FROM transactions
                    WHERE ledger_id = ? AND category_id = ? AND type = 'expense'
-                     AND date >= ? AND date <= ? AND id <> ?`,
-                  [newLedger, newCategory, bp.start_date, bp.end_date, transactionId]
+                     AND date >= ? AND date < ? AND id <> ?`,
+                  [newLedger, newCategory, startStr, nextStr, transactionId]
                 );
                 const spentExcl = Number(sumRow?.spent || 0);
                 const limitAmt = Number(lim.limit_amt || 0);

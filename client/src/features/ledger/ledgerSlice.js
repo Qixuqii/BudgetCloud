@@ -105,7 +105,17 @@ const ledgerSlice = createSlice({
       })
       .addCase(loadLedgers.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.items = action.payload;
+        // Deduplicate by id to avoid duplicate React keys when server returns
+        // duplicate rows due to joins or legacy data.
+        const seen = new Set();
+        const unique = [];
+        for (const l of action.payload || []) {
+          if (l && !seen.has(l.id)) {
+            seen.add(l.id);
+            unique.push(l);
+          }
+        }
+        state.items = unique;
         if (!state.currentId && action.payload.length) {
           state.currentId = action.payload[0].id;
           storage.set('currentLedgerId', state.currentId);

@@ -119,8 +119,8 @@ export default function AddExpense() {
         }
         setCustomName('');
       }
-      // Ensure category has a budget in this ledger/month
-      const period = new Date().toISOString().slice(0,7);
+      // Ensure category has a budget in this ledger/month (derive from selected date, local-safe)
+      const period = String(date || '').slice(0,7);
       try {
         const data = await fetchBudgets(currentLedgerId, period);
         const items = data?.items || [];

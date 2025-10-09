@@ -30,8 +30,9 @@ export default function LedgerList() {
   };
 
   const toggleDetails = async (id) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-    if (!details[id]) {
+    const opening = !expanded[id];
+    setExpanded((prev) => ({ ...prev, [id]: opening }));
+    if (opening) {
       try {
         const data = await fetchLedgerDetail(id);
         setDetails((prev) => ({ ...prev, [id]: data }));

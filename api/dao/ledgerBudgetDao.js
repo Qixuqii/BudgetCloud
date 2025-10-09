@@ -1,25 +1,35 @@
 import { db } from "../db.js";
 
-// Helper: validate period as YYYY-MM
+// Helper: validate period as YYYY-MM (local-safe)
 function normalizePeriod(period) {
-  // Default to current month
-  if (!period) return new Date().toISOString().slice(0, 7);
+  // Default to current month (local time)
+  if (!period) {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  }
   // Accept YYYY-MM
   if (/^\d{4}-\d{2}$/.test(period)) return period;
   // Also accept YYYY-MM-DD and trim to month
   if (/^\d{4}-\d{2}-\d{2}$/.test(period)) return period.slice(0, 7);
-  // Try Date parse fallback (e.g., ISO string), then trim
+  // Try Date parse fallback (e.g., ISO string), then trim using local components
   const d = new Date(period);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 7);
+  if (!isNaN(d.getTime())) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  }
   throw new Error("Invalid period format. Expect YYYY-MM");
 }
 
+// Compute start/end boundaries as strings without UTC conversion
 function getPeriodRange(period) {
   const [y, m] = period.split("-").map(Number);
-  const start = new Date(y, m - 1, 1);
-  const next  = new Date(y, m, 1);
-  const toDateStr = (d) => d.toISOString().slice(0, 10);
-  return { start: toDateStr(start), end: toDateStr(next) };
+  const pad = (n) => String(n).padStart(2, "0");
+  const start = `${y}-${pad(m)}-01`;
+  const nextY = m === 12 ? y + 1 : y;
+  const nextM = m === 12 ? 1 : m + 1;
+  const end = `${nextY}-${pad(nextM)}-01`; // exclusive upper bound
+  return { start, end };
 }
 
 // 获取预算和支出进度（方法2：按 ledger 过滤，不检查分类 user_id）
@@ -27,35 +37,41 @@ export async function getBudgetsWithProgress(userId, ledgerId, period) {
   const p = normalizePeriod(period);
   const { start, end } = getPeriodRange(p);
 
-  // 查周期（改成按月份匹配）
+  // 查周期：按精确 start_date 匹配，避免同月重复行的歧义
   const [[bp]] = await db.query(
     `SELECT id, title, start_date, end_date 
      FROM budget_periods
      WHERE ledger_id = ?
-       AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
-    [ledgerId, p]
+       AND start_date = ?
+     ORDER BY id ASC
+     LIMIT 1`,
+    [ledgerId, `${p}-01`]
   );
   if (!bp) return [];
 
-  // 查预算和支出
+  // 查预算与支出：先聚合交易，再与预算做左连接，避免连接放大导致预算被“跟随支出”
   const [rows] = await db.query(
     `
     SELECT
       c.id AS category_id,
       c.name AS category_name,
       c.type AS category_type,
-      COALESCE(SUM(bl.limit_amt), 0) AS budget_amount,
-      COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS spent_amount,
-      COUNT(t.id) AS tx_count
+      CAST(bl.limit_amt AS DECIMAL(12,2)) AS budget_amount,
+      COALESCE(tx.spent_amount, 0) AS spent_amount,
+      COALESCE(tx.tx_count, 0) AS tx_count
     FROM budget_limits bl
     JOIN categories c ON bl.category_id = c.id
-    LEFT JOIN transactions t
-      ON t.category_id = c.id
-     AND t.ledger_id = ?
-     AND t.type = 'expense'
-     AND t.date >= ? AND t.date < ?
+    LEFT JOIN (
+      SELECT category_id,
+             SUM(amount) AS spent_amount,
+             COUNT(id)   AS tx_count
+      FROM transactions
+      WHERE ledger_id = ?
+        AND type = 'expense'
+        AND date >= ? AND date < ?
+      GROUP BY category_id
+    ) tx ON tx.category_id = bl.category_id
     WHERE bl.period_id = ?
-    GROUP BY c.id, c.name, c.type
     ORDER BY c.type DESC, c.name ASC
     `,
     [ledgerId, start, end, bp.id]
@@ -83,8 +99,10 @@ export async function getPeriodMeta(ledgerId, period) {
   const p = normalizePeriod(period);
   const [[row]] = await db.query(
     `SELECT id, title, start_date, end_date FROM budget_periods
-     WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
-    [ledgerId, p]
+     WHERE ledger_id = ? AND start_date = ?
+     ORDER BY id ASC
+     LIMIT 1`,
+    [ledgerId, `${p}-01`]
   );
   if (!row) return null;
   const meta = { ...row };
@@ -108,8 +126,10 @@ export async function upsertCategoryBudget({ userId, ledgerId, categoryId, perio
   // 确认周期
   const [[bp]] = await db.query(
     `SELECT id FROM budget_periods
-     WHERE ledger_id = ? AND start_date = ? AND end_date = DATE_SUB(?, INTERVAL 1 DAY)`,
-    [ledgerId, `${p}-01`, end]
+     WHERE ledger_id = ? AND start_date = ?
+     ORDER BY id ASC
+     LIMIT 1`,
+    [ledgerId, `${p}-01`]
   );
 
   let periodId;
@@ -147,8 +167,8 @@ export async function upsertBudgetPeriodTitle({ ledgerId, period, title, totalBu
   const p = normalizePeriod(period);
   const { start, end } = getPeriodRange(p);
   const [[bp]] = await db.query(
-    `SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ? AND end_date = DATE_SUB(?, INTERVAL 1 DAY)`,
-    [ledgerId, `${p}-01`, end]
+    `SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ? ORDER BY id ASC LIMIT 1`,
+    [ledgerId, `${p}-01`]
   );
   let periodId = bp?.id;
   const titleValue = (totalBudget != null)
@@ -170,11 +190,13 @@ export async function upsertBudgetPeriodTitle({ ledgerId, period, title, totalBu
 export async function deleteCategoryBudget({ ledgerId, categoryId, period }) {
   const p = normalizePeriod(period);
 
-  // 找到周期
+  // 找到周期（精确 start_date 匹配）
   const [[bp]] = await db.query(
     `SELECT id FROM budget_periods
-     WHERE ledger_id = ? AND DATE_FORMAT(start_date, '%Y-%m') = ?`,
-    [ledgerId, p]
+     WHERE ledger_id = ? AND start_date = ?
+     ORDER BY id ASC
+     LIMIT 1`,
+    [ledgerId, `${p}-01`]
   );
   if (!bp) return { ok: false, reason: "PERIOD_NOT_FOUND" };
 
@@ -185,4 +207,70 @@ export async function deleteCategoryBudget({ ledgerId, categoryId, period }) {
   );
 
   return { ok: res.affectedRows > 0 };
+}
+
+// V2: 获取该月预算（合并同月重复周期），每个分类取该月最新周期的额度
+export async function getBudgetsWithProgressV2(userId, ledgerId, period) {
+  const p = normalizePeriod(period);
+  const { start, end } = getPeriodRange(p);
+  // 如果该月没有任何周期，直接返回空
+  const [[exists]] = await db.query(
+    `SELECT 1 AS ok FROM budget_periods WHERE ledger_id = ? AND start_date = ? LIMIT 1`,
+    [ledgerId, `${p}-01`]
+  );
+  if (!exists) return [];
+
+  const [rows] = await db.query(
+    `
+    SELECT
+      c.id AS category_id,
+      c.name AS category_name,
+      c.type AS category_type,
+      CAST(MAX(CASE WHEN bl.period_id = pick.max_pid THEN bl.limit_amt END) AS DECIMAL(12,2)) AS budget_amount,
+      COALESCE(tx.spent_amount, 0) AS spent_amount,
+      COALESCE(tx.tx_count, 0) AS tx_count
+    FROM budget_limits bl
+    JOIN (
+      SELECT category_id, MAX(period_id) AS max_pid
+      FROM budget_limits
+      WHERE period_id IN (
+        SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?
+      )
+      GROUP BY category_id
+    ) pick ON pick.category_id = bl.category_id
+    JOIN categories c ON bl.category_id = c.id
+    LEFT JOIN (
+      SELECT category_id,
+             SUM(amount) AS spent_amount,
+             COUNT(id)   AS tx_count
+      FROM transactions
+      WHERE ledger_id = ?
+        AND type = 'expense'
+        AND date >= ? AND date < ?
+      GROUP BY category_id
+    ) tx ON tx.category_id = bl.category_id
+    WHERE bl.period_id IN (
+      SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?
+    )
+    GROUP BY c.id, c.name, c.type
+    ORDER BY c.type DESC, c.name ASC
+    `,
+    [ledgerId, `${p}-01`, ledgerId, start, end, ledgerId, `${p}-01`]
+  );
+
+  return rows.map((r) => {
+    const progress = r.budget_amount > 0 ? Number((r.spent_amount / r.budget_amount).toFixed(4)) : null;
+    const remaining = r.budget_amount > 0 ? Number((r.budget_amount - r.spent_amount).toFixed(2)) : null;
+    let status = null;
+    if (progress === null) {
+      status = 'no_budget';
+    } else if (progress < 0.8) {
+      status = 'on_track';
+    } else if (progress <= 1) {
+      status = 'at_risk';
+    } else {
+      status = 'over';
+    }
+    return { ...r, progress, remaining, status };
+  });
 }

@@ -1,171 +1,118 @@
-好的，我们来一步一步地做一份**清晰、系统的功能结构分析**。我会按软件工程的标准方式，从**系统 → 子系统 → 模块 → 功能点**逐层分解，逻辑清楚、便于后续 ER 图建模。
+BudgetCloud — Collaborative Budgeting & Analytics
 
----
+BudgetCloud is a collaborative budgeting app that lets individuals and teams track income and expenses across shared ledgers (budgets), allocate category budgets, browse a calendar of activity, and analyze spending with clean charts.
 
-## 📘【系统名称】
+Key components live under a React + Vite client and a Node.js + Express API backed by MySQL. Google Sign‑In is supported when configured.
 
-**BudgetTracker 多人协作记账系统**
+—
 
----
+Features
 
-## 📂【一级结构：系统子模块划分】
+- Authentication: email/password login, logout, and optional Google Sign‑In. JWT is issued and stored in an httpOnly cookie.
+- Ledgers (Budgets): create, list, view details; rename (owner/editor), delete (owner only).
+- Membership & Roles: invite by username; roles include owner, editor, and viewer; change roles; transfer ownership; leave a ledger (owner must transfer first).
+- Categories: personal category library (create, rename, delete). Used for both budgeting and transactions.
+- Transactions: add, edit, delete income and expense entries; filter by date range, type, category; see who created a record.
+- Budgeting: per‑category budget for a period (YYYY‑MM) with progress overview and category‑level table; quick “allocate remaining to Other”.
+- Analytics: category analytics view with selectable date range, per‑category totals/averages, and smooth line/bar charts.
+- Calendar: month view that marks income/expense presence per day with an adjacent daily transaction list; supports “All Budgets” or a specific ledger.
+- AI Summaries (read‑only): fetch a precomputed monthly summary if present in the `ai_summaries` table.
 
-1. 用户与权限管理模块
-2. 账本管理模块
-3. 账目（交易）管理模块
-4. 可视化与统计模块
-5. 日历视图模块
-6. AI 分析与建议模块
+—
 
----
+Future Work
 
-## 🔍【二级结构：每个模块功能点分析】
+- AI insights generation: compute natural‑language monthly summaries with an LLM and store them, instead of only reading prefilled rows.
+- Invitation flow: add accept/decline and email/link invites rather than direct owner assignment.
+- Budget enforcement: warnings and optional blocking when a transaction would exceed a category or total budget; budget status badges (on‑track/at‑risk/over).
+- Weekly dashboard: 7‑day spending distribution, workday vs. weekend comparison, and additional visualizations (e.g., tangential polar bar).
+- Member comparisons: per‑member spending comparisons and contribution breakdowns within a ledger.
+- Category adjustments: interactive prompts to reallocate budget when adding/updating transactions to keep totals invariant.
+- UX polish: richer hover/expand interactions, clearer labels on charts, and explicit “created by” display across lists.
+- i18n/A11y: English/Chinese localization and improved accessibility.
 
----
+—
 
-### **1. 用户与权限管理模块**
+Tech Stack
 
-| 功能点             | 说明                                       |
-| ------------------ | ------------------------------------------ |
-| 用户注册           | 使用邮箱、用户名、密码注册账号             |
-| 用户登录           | 登录验证，生成 JWT Token                   |
-| 用户登出           | 清除登录状态                               |
-| 权限控制           | 用户可能是“账本创建者”、“编辑者”、“只读者” |
-| 用户信息管理（选） | 支持修改用户名、头像等                     |
+- Frontend: React 18, Vite 7, Tailwind CSS, Redux Toolkit, Tremor components.
+- Backend: Node.js + Express 5, MySQL (mysql2), JSON Web Tokens, Google OAuth (google‑auth‑library).
+- Dev/Ops: Nodemon for dev, optional PM2 via `ecosystem.config.js` for process management.
 
----
+—
 
-### **2. 账本管理模块**
+Getting Started
 
-| 功能点           | 说明                         |
-| ---------------- | ---------------------------- |
-| 创建账本         | 每个用户可以拥有多个账本     |
-| 修改账本信息     | 如账本名称、图标等           |
-| 删除账本         | 只能由创建者删除             |
-| 邀请用户加入账本 | 可通过邮件或链接邀请他人     |
-| 设置成员权限     | 选择编辑 / 查看权限          |
-| 查看账本成员     | 查看谁加入了当前账本及其权限 |
+- Prerequisites
+  - Node.js 18+ and npm
+  - MySQL 8+ (local or managed; SSL supported)
 
----
+- Database
+  - Create a database (e.g., `budget_tracker`).
+  - Import the schema dumps in `Mysql/` to create tables:
+    - `Mysql/budget_tracker_users.sql`
+    - `Mysql/budget_tracker_ledgers.sql`
+    - `Mysql/budget_tracker_ledger_members.sql`
+    - `Mysql/budget_tracker_categories.sql`
+    - `Mysql/budget_tracker_transactions.sql`
+    - `Mysql/budget_tracker_budget_limits.sql`
+    - `Mysql/budget_tracker_budget_periods.sql`
+    - `Mysql/budget_tracker_ai_summaries.sql`
 
-### **3. 账目（交易）管理模块**
+- Backend (API)
+  - Configure environment in `api/.env` (see `api/db.js:1`). Typical keys:
+    - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`
+    - `DB_SSL_CA_PATH` (if your provider requires SSL)
+    - `DB_CONN_LIMIT` (optional)
+    - `GOOGLE_CLIENT_ID` (optional; enables Google login)
+  - Install and run:
+    - `cd api && npm i`
+    - `npm run dev` (starts on `http://localhost:8800`)
 
-| 功能点       | 说明                                 |
-| ------------ | ------------------------------------ |
-| 添加交易记录 | 添加收入或支出记录                   |
-| 编辑记录     | 修改金额、分类、备注等               |
-| 删除记录     | 删除自己添加的记录（或由编辑者操作） |
-| 查看交易记录 | 按账本查询所有记录，可分页           |
-| 分类与标签   | 支持多个分类（如饮食、交通、工资）   |
-| 搜索与筛选   | 可按时间、分类、金额筛选记录         |
+- Frontend (Client)
+  - Environment (see `client/.env` and `client/vite.config.js:1`):
+    - `VITE_GOOGLE_CLIENT_ID` (optional for Google login)
+    - `VITE_API_BASE=/api` (default; proxied to backend)
+  - Install and run:
+    - `cd client && npm i`
+    - `npm run dev` (Vite dev server, proxying `/api` to the backend)
 
----
+- PM2 (optional)
+  - Start both processes with `pm2` using `ecosystem.config.js:1`:
+    - `pm2 start ecosystem.config.js`
 
-### **4. 可视化与统计模块**
+—
 
-| 功能点           | 说明                           |
-| ---------------- | ------------------------------ |
-| 月度收支趋势图   | 折线图显示每月总收入和支出趋势 |
-| 分类饼图         | 当前月份各分类所占比例         |
-| 自定义时间段统计 | 支持选择日期范围查看统计图     |
+API Overview (Quick Reference)
 
----
+- Auth
+  - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/google`
+- Users
+  - `GET /api/users/me`
+- Ledgers
+  - `GET /api/ledgers`, `POST /api/ledgers`
+  - `GET /api/ledgers/:ledgerId`, `PATCH /api/ledgers/:ledgerId`, `DELETE /api/ledgers/:ledgerId`
+- Members
+  - `GET /api/ledgers/:ledgerId/members`, `POST /api/ledgers/:ledgerId/members`
+  - `PUT /api/ledgers/:ledgerId/members/:memberId`, `DELETE /api/ledgers/:ledgerId/members/:memberId`
+  - `POST /api/ledgers/:ledgerId/transfer-owner`, `POST /api/ledgers/:ledgerId/leave`
+- Budgets
+  - `GET /api/ledgers/:ledgerId/budgets`
+  - `PUT /api/ledgers/:ledgerId/budgets/:categoryId`, `DELETE /api/ledgers/:ledgerId/budgets/:categoryId`
+  - `PATCH /api/ledgers/:ledgerId/budgets/period`
+- Categories
+  - `GET /api/categories`, `POST /api/categories`
+  - `PUT /api/categories/:categoryId`, `DELETE /api/categories/:categoryId`
+- Transactions
+  - `GET /api/transactions` (filters: `ledger_id`, `category_id`, `type`, `start_date`, `end_date`)
+  - `GET /api/transactions/:id`, `POST /api/transactions`, `PUT /api/transactions/:id`, `DELETE /api/transactions/:id`
+- AI Summaries
+  - `GET /api/ledgers/:ledgerId/summaries/:month` (month format `YYYY-MM`)
 
-### **5. 日历视图模块**
+—
 
-| 功能点           | 说明                           |
-| ---------------- | ------------------------------ |
-| 月视图展示       | 显示该月有哪些日期有交易记录   |
-| 点击某天查看详情 | 跳转或弹窗显示该日所有交易记录 |
+Notes
 
----
+- The client proxies requests starting with `/api` to the backend (see `client/vite.config.js:1`). For production, serve the API and a static client build behind a reverse proxy that maps `/api` appropriately.
+- Google Sign‑In only appears if `VITE_GOOGLE_CLIENT_ID` is set on the client and `GOOGLE_CLIENT_ID` is set on the API.
 
-### **6. AI 分析与建议模块（可选）**
-
-| 功能点             | 说明                                     |
-| ------------------ | ---------------------------------------- |
-| 自动分析月度数据   | 判断是否有超支、某类消费突增等现象       |
-| 生成自然语言总结   | 输出建议语句：“你本月外卖支出增加了 50%” |
-| 多账本分析（可选） | 为每个账本生成单独建议                   |
-
----
-
-## 🌲 个人记账管理系统 功能结构图（综合逻辑版）
-
-```
-个人记账管理系统
-├── 用户与权限管理模块
-│   ├── 用户注册与登录（邮箱、密码）
-│   ├── 身份验证（JWT、Token 管理）
-│   ├── 用户信息管理（用户名、头像、邮箱）
-│   └── 权限控制（账本创建者 / 编辑者 / 查看者）
-
-├── 账本管理模块
-│   ├── 创建/编辑/删除账本
-│   ├── 成员管理（邀请他人加入账本）
-│   ├── 设置成员权限（可编辑 / 只读）
-│   └── 多账本切换与选择
-
-├── 财务记录管理模块（交易模块）
-│   ├── 添加/编辑/删除交易记录
-│   │   ├── 类型（收入 / 支出）
-│   │   ├── 分类（如饮食、交通、工资）
-│   │   ├── 金额、备注、日期
-│   ├── 查看交易记录列表
-│   ├── 按分类 / 时间 / 金额筛选
-│   └── 分类类型自定义管理（可选）
-
-├── 财务可视化模块
-│   ├── 月度收支趋势图（折线图）
-│   ├── 分类统计饼图
-│   └── 时间段收支分析图
-
-├── 日历视图模块
-│   ├── 月历展示交易数据分布
-│   └── 点击某日查看该日全部记录
-
-├── AI 分析与总结模块
-│   ├── 自动识别异常支出（例如突然高额消费）
-│   ├── 生成自然语言月度总结
-│   └── 基于分类提供消费建议
-
-├── 个性化与辅助功能
-│   ├── 暗色 / 亮色主题切换
-│   └── 设备自适应响应式界面
-
-```
-
----
-
-### ✅ 特点：
-
-- 上层是系统主模块，按“业务逻辑”划分
-- 每个模块内部是功能点，兼顾 UI 页面结构
-- 支持你的扩展需求（多人协作、AI、权限控制等）
-- 可直接作为数据库设计和前端路由结构的蓝本
-
-# ledger invite 和删除 ledger 功能是不是还要其他人的同意，这个功能怎么确定
-
-<!-- # budget 的 status 状态要变化，还有确定好的预算都不能超，如果记账的时候超过了就不允许再记账或者是变红 on track 各种状态要注意选择新的
-
-# 调理 budget 修改： 自动设置一个不全的 category 然后创建，可以限额小于实际记账总额 -->
-
-<!-- # 再建立一个周的 dashboard 右边的 overview 换成一周 7 天支出分布”：一圈 7 根柱，对比工作日 vs 周末。“Tangential Polar Bar (Label Position: middle)” 是 ECharts 的极坐标柱状图示例。它把普通条形图放到极坐标系里——每个分类占一个角度扇区，柱子的长度=金额大小，而标签沿切线方向（tangential）放在柱子“中部（middle）”，读起来更顺手，不会互相遮挡。 -->
-
-<!-- “账户或成员对比（少量类目）”：当维度不多、想做环形对比时，比放射状雷达更直观。 -->
-
-<!-- # 要求 budget 里已经有 categories 之后不能再选择这个，不能重复
-
-# category 的图表要求有数字并且根据选择的内容进行呈现出不一样的，dasboard 也是
-
-# 要求鼠标移动之前就是浮雕的效果，鼠标移动之后会展开，如果文字显示不出来的话
-
-# 如果新增这个新的 categories，不管是在 expense 还是 update 都要求询问这个新增的数额会在哪个 categories 减去，要求保证整体 budget 的预算不变，如果没有要选择的话就问是否增加预算 -->
-
-<!-- # 要求可以 edit categories， 修改这个标签让一些不需要的删掉 -->
-
-<!-- # category 和 calendar 都要可以选择 budget 一个的 select 不要显示，calendar 要求可以选择全部 -->
-
-<!-- # 要求同一个 budget 下的人需要共享所有数据，包括每一条 income 和 expense，UI shows who created it. 我目前这个还是空的，只能看到 budget 下的详情，并且在修改 budget 的时候 categories 也是空的 要求在同一个 budget 下的用户可以看到这个 budget 的所有数据，然后也能知道这个是谁创立的 -->
-
-# react node.js AI-generated summary 网页怎么做详细的给我说

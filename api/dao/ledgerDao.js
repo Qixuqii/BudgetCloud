@@ -37,7 +37,9 @@ export async function listLedgersByUser(userId, period) {
   // Normalize period to YYYY-MM; default to current month
   const p = (() => {
     if (period && /^\d{4}-\d{2}$/.test(period)) return period;
-    return new Date().toISOString().slice(0, 7);
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
   })();
 
   const [rows] = await db.query(
@@ -68,13 +70,19 @@ export async function listLedgersByUser(userId, period) {
     /* Budget period for the requested month */
     LEFT JOIN budget_periods bp 
       ON bp.ledger_id = l.id 
-     AND DATE_FORMAT(bp.start_date, '%Y-%m') = ?
+     AND bp.start_date = CONCAT(?, '-01')
+     AND bp.id = (
+       SELECT MIN(p2.id)
+       FROM budget_periods p2
+       WHERE p2.ledger_id = l.id
+         AND p2.start_date = CONCAT(?, '-01')
+     )
     LEFT JOIN budget_limits bl ON bl.period_id = bp.id
     WHERE l.owner_id = ? OR m.user_id IS NOT NULL
     GROUP BY l.id, l.name, l.owner_id, owner_name, l.created_at, bp.title
     ORDER BY l.created_at DESC
     `,
-    [p, userId, userId, p, userId]
+    [p, userId, userId, p, p, userId]
   );
   return rows;
 }

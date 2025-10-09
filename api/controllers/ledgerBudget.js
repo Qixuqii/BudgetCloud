@@ -1,4 +1,4 @@
-import { getBudgetsWithProgress, upsertCategoryBudget, getPeriodMeta, upsertBudgetPeriodTitle } from "../dao/ledgerBudgetDao.js";
+import { getBudgetsWithProgressV2 as getBudgetsWithProgress, upsertCategoryBudget, getPeriodMeta, upsertBudgetPeriodTitle } from "../dao/ledgerBudgetDao.js";
 
 // GET /api/ledgers/:ledgerId/budgets?period=YYYY-MM
 export async function listBudgetsWithProgress(req, res) {
@@ -6,9 +6,12 @@ export async function listBudgetsWithProgress(req, res) {
     const userId = req.user.id;
     const ledgerId = Number(req.params.ledgerId);
     const { period } = req.query;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const def = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
     const rows = await getBudgetsWithProgress(userId, ledgerId, period);
-    const meta = await getPeriodMeta(ledgerId, period || new Date().toISOString().slice(0, 7));
-    return res.json({ period: period || new Date().toISOString().slice(0, 7), title: meta?.title || null, total: meta?.total ?? null, items: rows });
+    const meta = await getPeriodMeta(ledgerId, period || def);
+    return res.json({ period: period || def, title: meta?.title || null, total: meta?.total ?? null, items: rows });
   } catch (e) {
     if (String(e.message || "").includes("Invalid period")) {
       return res.status(400).json({ message: e.message });
@@ -36,7 +39,10 @@ export async function setCategoryBudget(req, res) {
     if (!result.ok && result.reason === "CATEGORY_NOT_FOUND") {
       return res.status(404).json({ message: "Category not found for current user" });
     }
-    return res.status(200).json({ ledger_id: ledgerId, category_id: categoryId, period: period || new Date().toISOString().slice(0, 7), amount: amt });
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const def = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+    return res.status(200).json({ ledger_id: ledgerId, category_id: categoryId, period: period || def, amount: amt });
   } catch (e) {
     if (String(e.message || "").includes("Invalid period")) {
       return res.status(400).json({ message: e.message });

@@ -34,16 +34,34 @@ const Home = () => {
   const ledgers = useSelector(selectLedgers);
 
   const [loading, setLoading] = useState(false);
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [txCurr, setTxCurr] = useState({ income: [], expense: [] });
   const [txPrev, setTxPrev] = useState({ income: [], expense: [] });
   const [recentTx, setRecentTx] = useState([]);
 
   useEffect(() => { dispatch(loadLedgers()); }, [dispatch]);
 
+  const monthRange = useMemo(() => {
+    const [yy, mm] = String(month || '').split('-').map(Number);
+    const start = new Date(yy, (mm || 1) - 1, 1);
+    const end = new Date(yy, (mm || 1), 0);
+    const to = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { cs: to(start), ce: to(end) };
+  }, [month]);
+
+  const prevMonthRange = useMemo(() => {
+    const [yy, mm] = String(month || '').split('-').map(Number);
+    const prev = new Date(yy, (mm || 1) - 2, 1);
+    const start = new Date(prev.getFullYear(), prev.getMonth(), 1);
+    const end = new Date(prev.getFullYear(), prev.getMonth() + 1, 0);
+    const to = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { ps: to(start), pe: to(end) };
+  }, [month]);
+
   useEffect(() => {
     if (!currentLedgerId) return;
-    const { start: cs, end: ce } = monthBoundaries(0);
-    const { start: ps, end: pe } = monthBoundaries(-1);
+    const { cs, ce } = monthRange;
+    const { ps, pe } = prevMonthRange;
     (async () => {
       setLoading(true);
       try {
@@ -60,7 +78,7 @@ const Home = () => {
         setRecentTx(recentList || []);
       } finally { setLoading(false); }
     })();
-  }, [currentLedgerId]);
+  }, [currentLedgerId, monthRange, prevMonthRange]);
 
   const sums = (list) => list.reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const currIncome = sums(txCurr.income);
@@ -74,7 +92,7 @@ const Home = () => {
   const money = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Daily series for stacked bars (income + expense)
-  const { start: cs, end: ce } = monthBoundaries(0);
+  const { cs, ce } = monthRange;
   const dailySeries = useMemo(() => {
     const inc = new Map();
     const exp = new Map();
@@ -141,6 +159,13 @@ const Home = () => {
               <option key={`${l.id}-${idx}`} value={l.id}>{l.name} ({l.myRole || 'viewer'})</option>
             ))}
           </select>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            title="Select month"
+          />
         </div>
       </div>
 
