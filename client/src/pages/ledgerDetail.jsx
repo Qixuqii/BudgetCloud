@@ -262,6 +262,21 @@ export default function LedgerDetail() {
     if (currentId) dispatch(loadLedgerDetail({ id: currentId, period: month }));
   }, [currentId, month, dispatch]);
 
+  // Refresh when other pages update budgets (e.g., replacement deduction)
+  useEffect(() => {
+    const onBudgetUpdated = (e) => {
+      try {
+        const { ledgerId, period } = e.detail || {};
+        if (!ledgerId) return;
+        if (ledgerId !== currentId) return;
+        // Refresh current month view whenever this ledger updates
+        dispatch(loadLedgerDetail({ id: currentId, period: month }));
+      } catch {}
+    };
+    window.addEventListener('budget-updated', onBudgetUpdated);
+    return () => window.removeEventListener('budget-updated', onBudgetUpdated);
+  }, [currentId, month, dispatch]);
+
   const periodText = useMemo(() => {
     if (!ledger?.period) return "";
     return `${formatDateEN(ledger.period.start_date)} ~ ${formatDateEN(

@@ -166,8 +166,8 @@ export default function CalendarPage() {
         </div>
 
         <div className="grid grid-cols-7 gap-2 text-center text-xs text-gray-500">
-          {['S','M','T','W','T','F','S'].map((d) => (
-            <div key={d} className="py-1">{d}</div>
+          {['S','M','T','W','T','F','S'].map((d, i) => (
+            <div key={`${d}-${i}`} className="py-1">{d}</div>
           ))}
         </div>
 

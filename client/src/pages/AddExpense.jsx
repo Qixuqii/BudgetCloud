@@ -5,7 +5,7 @@ import { selectCurrentLedgerId, selectLedgers, loadLedgers, setCurrentLedger } f
 import { fetchCategories, createCategory } from '../services/categories';
 import { addTransaction } from '../services/transactions';
 import CategoryManager from '../components/CategoryManager';
-import { fetchBudgets, setCategoryBudget, updateBudgetPeriod } from '../services/ledgers';
+import { fetchBudgets, setCategoryBudget, setCategoryBudgetWithReplacement, updateBudgetPeriod } from '../services/ledgers';
 import { toYMD } from '../utils/date';
 
 const presetExpenseCategories = [
@@ -137,9 +137,15 @@ export default function AddExpense() {
           if (!Number.isFinite(b) || b <= 0) { window.alert('Invalid amount. Budget creation canceled'); return; }
 
           // Ask reallocation target to keep total unchanged
-          const donors = items.filter(it => it.category_id !== Number(cid) && Number(it.budget_amount) > 0);
+          const donors = items
+            .filter(it => it.category_id !== Number(cid))
+            .map(it => ({
+              ...it,
+              available: Math.max(0, (Number(it.budget_amount) || 0) - (Number(it.spent_amount) || 0)),
+            }))
+            .filter(it => it.available > 0);
           let increaseBy = 0;
-          let donorUpdate = null; // {id, newAmt}
+          let donorReplace = null; // {id, reduce}
           if (donors.length > 0) {
             const choice = await openDonorModal(donors, b);
             if (!choice) { window.alert('Budget creation canceled'); return; }
@@ -150,16 +156,9 @@ export default function AddExpense() {
             } else {
               const donor = donors.find(d => d.category_id === choice.donorId);
               if (!donor) { window.alert('Category not found.'); return; }
-              const donorAmt = Number(donor.budget_amount) || 0;
-              if (donorAmt >= b) {
-                donorUpdate = { id: donor.category_id, newAmt: donorAmt - b };
-              } else {
-                const diff = b - donorAmt;
-                const proceed = window.confirm(`Selected category has only $${donorAmt.toFixed(2)}. Set it to $0 and increase total by $${diff.toFixed(2)}?`);
-                if (!proceed) return;
-                donorUpdate = { id: donor.category_id, newAmt: 0 };
-                increaseBy = diff;
-              }
+              const avail = Number(donor.available) || 0;
+              if (avail < b) { window.alert('Insufficient available budget in selected category'); return; }
+              donorReplace = { id: donor.category_id, reduce: b };
             }
           } else {
             const proceed = window.confirm(`No categories to reallocate from. Increase overall total budget by $${b.toFixed(2)}?`);
@@ -168,14 +167,33 @@ export default function AddExpense() {
           }
 
           try {
-            await setCategoryBudget(currentLedgerId, Number(cid), b, period);
-            if (donorUpdate) await setCategoryBudget(currentLedgerId, donorUpdate.id, donorUpdate.newAmt, period);
+            if (donorReplace) {
+              // Atomic server-side replacement with validation
+              await setCategoryBudgetWithReplacement(
+                currentLedgerId,
+                Number(cid),
+                b,
+                period,
+                [{ category_id: donorReplace.id, amount: donorReplace.reduce }]
+              );
+            } else {
+              await setCategoryBudget(currentLedgerId, Number(cid), b, period);
+            }
             if (increaseBy > 0) {
               const currentTotal = Number(data?.total) || items.reduce((a, it) => a + (Number(it.budget_amount) || 0), 0);
               await updateBudgetPeriod(currentLedgerId, { period, totalBudget: currentTotal + increaseBy });
             }
-          } catch {
-            window.alert('Failed to create or adjust budget');
+            // Notify other views (Budget Analysis) to refresh
+            try { window.dispatchEvent(new CustomEvent('budget-updated', { detail: { ledgerId: currentLedgerId, period } })); } catch {}
+          } catch (err) {
+            const msg = err?.response?.data?.message || 'Failed to create or adjust budget';
+            if (err?.response?.data?.code === 'BUDGET_REPLACEMENT_DENIED') {
+              const fails = err.response.data.details || [];
+              const reason = fails.map(f => `#${f.category_id}: ${f.reason || 'insufficient'}`).join(', ');
+              window.alert(`Replacement denied: ${reason}`);
+            } else {
+              window.alert(msg);
+            }
             return;
           }
         }
@@ -353,9 +371,12 @@ export default function AddExpense() {
             >
               <option value="">Increase total budget by entered amount</option>
               {donorModal.donors.map((d) => (
-                <option key={d.category_id} value={d.category_id}>
-                  {d.category_name} ($
-                  {Number(d.budget_amount || 0).toFixed(2)})
+                <option
+                  key={d.category_id}
+                  value={d.category_id}
+                  disabled={Number(d.available || 0) < Number(donorModal.amount || 0)}
+                >
+                  {d.category_name} (${Number(d.available || 0).toFixed(2)} available)
                 </option>
               ))}
             </select>

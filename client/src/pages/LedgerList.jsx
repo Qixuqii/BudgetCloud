@@ -42,6 +42,21 @@ export default function LedgerList() {
     }
   };
 
+  // Live refresh inline analysis when budgets change elsewhere
+  useEffect(() => {
+    const onBudgetUpdated = async (e) => {
+      try {
+        const { ledgerId, period } = e.detail || {};
+        if (!ledgerId) return;
+        if (!expanded[ledgerId]) return;
+        const data = await fetchLedgerDetail(ledgerId);
+        setDetails((prev) => ({ ...prev, [ledgerId]: data }));
+      } catch {}
+    };
+    window.addEventListener('budget-updated', onBudgetUpdated);
+    return () => window.removeEventListener('budget-updated', onBudgetUpdated);
+  }, [expanded]);
+
   const handleLeave = async (id) => {
     await dispatch(leaveLedgerAction(id));
     await dispatch(loadLedgers());

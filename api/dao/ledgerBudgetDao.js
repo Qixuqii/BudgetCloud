@@ -127,7 +127,7 @@ export async function upsertCategoryBudget({ userId, ledgerId, categoryId, perio
   const [[bp]] = await db.query(
     `SELECT id FROM budget_periods
      WHERE ledger_id = ? AND start_date = ?
-     ORDER BY id ASC
+     ORDER BY id DESC
      LIMIT 1`,
     [ledgerId, `${p}-01`]
   );
@@ -185,6 +185,132 @@ export async function upsertBudgetPeriodTitle({ ledgerId, period, title, totalBu
     await db.query(`UPDATE budget_periods SET title = ? WHERE id = ?`, [titleValue, periodId]);
   }
   return { ok: true, id: periodId };
+}
+
+// Reallocate budgets atomically: set target category budget and reduce others if possible.
+// sources: array of { category_id, amount } or { categoryId, reduce } etc.
+export async function reallocateCategoryBudget({ ledgerId, categoryId, period, amount, sources }) {
+  const p = normalizePeriod(period);
+  const { start, end } = getPeriodRange(p);
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Ensure or create period
+    const [[bp]] = await conn.query(
+      `SELECT id FROM budget_periods
+       WHERE ledger_id = ? AND start_date = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [ledgerId, `${p}-01`]
+    );
+    let periodId = bp?.id;
+    if (!periodId) {
+      const [res] = await conn.query(
+        `INSERT INTO budget_periods (ledger_id, title, start_date, end_date)
+         VALUES (?, ?, ?, DATE_SUB(?, INTERVAL 1 DAY))`,
+        [ledgerId, `${p} 月度预算`, `${p}-01`, end]
+      );
+      periodId = res.insertId;
+    }
+
+    // Validate target category exists
+    const [[cat]] = await conn.query(
+      `SELECT id FROM categories WHERE id = ?`,
+      [categoryId]
+    );
+    if (!cat) {
+      await conn.rollback();
+      return { ok: false, reason: 'CATEGORY_NOT_FOUND' };
+    }
+
+    // Choose target period row for this category: latest row this month if exists; otherwise the latest month period
+    const [[pickTarget]] = await conn.query(
+      `SELECT MAX(bl.period_id) AS pid
+       FROM budget_limits bl
+       WHERE bl.category_id = ?
+         AND bl.period_id IN (
+           SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?
+         )`,
+      [categoryId, ledgerId, `${p}-01`]
+    );
+    const targetPid = pickTarget?.pid || periodId;
+
+    // Upsert target category budget to desired amount on chosen period row
+    await conn.query(
+      `INSERT INTO budget_limits (period_id, category_id, limit_amt, rollover)
+       VALUES (?, ?, ?, 0)
+       ON DUPLICATE KEY UPDATE limit_amt = VALUES(limit_amt)`,
+      [targetPid, categoryId, Number(amount)]
+    );
+
+    const failures = [];
+    for (const src of sources || []) {
+      const srcId = Number(src?.category_id ?? src?.categoryId);
+      const reduceAmt = Number(src?.amount ?? src?.reduce ?? src?.reduce_amount);
+      if (!srcId || !Number.isFinite(reduceAmt) || reduceAmt <= 0) {
+        failures.push({ category_id: srcId || null, reason: 'INVALID_INPUT' });
+        continue;
+      }
+
+      // Pick latest budget row for this source category within the month
+      const [[pickSrc]] = await conn.query(
+        `SELECT MAX(bl.period_id) AS pid
+         FROM budget_limits bl
+         WHERE bl.category_id = ?
+           AND bl.period_id IN (
+             SELECT id FROM budget_periods WHERE ledger_id = ? AND start_date = ?
+           )`,
+        [srcId, ledgerId, `${p}-01`]
+      );
+      const srcPid = pickSrc?.pid;
+      if (!srcPid) {
+        failures.push({ category_id: srcId, reason: 'NO_BUDGET' });
+        continue;
+      }
+
+      const [[lim]] = await conn.query(
+        `SELECT limit_amt FROM budget_limits WHERE period_id = ? AND category_id = ?`,
+        [srcPid, srcId]
+      );
+      if (!lim) {
+        failures.push({ category_id: srcId, reason: 'NO_BUDGET' });
+        continue;
+      }
+      const currentLimit = Number(lim.limit_amt || 0);
+      const [[sumRow]] = await conn.query(
+        `SELECT COALESCE(SUM(amount),0) AS spent
+         FROM transactions
+         WHERE ledger_id = ? AND category_id = ? AND type = 'expense'
+           AND date >= ? AND date < ?`,
+        [ledgerId, srcId, start, end]
+      );
+      const spent = Number(sumRow?.spent || 0);
+      const newLimit = currentLimit - reduceAmt;
+      if (newLimit < spent) {
+        failures.push({ category_id: srcId, reason: 'INSUFFICIENT', current: currentLimit, spent, reduce: reduceAmt, min_allowed: spent });
+        continue;
+      }
+      await conn.query(
+        `UPDATE budget_limits SET limit_amt = ? WHERE period_id = ? AND category_id = ?`,
+        [newLimit, srcPid, srcId]
+      );
+    }
+
+    if (failures.length > 0) {
+      await conn.rollback();
+      return { ok: false, reason: 'REALLOCATE_FAILED', failures };
+    }
+
+    await conn.commit();
+    return { ok: true, period_id: periodId };
+  } catch (e) {
+    try { await conn.rollback(); } catch {}
+    throw e;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function deleteCategoryBudget({ ledgerId, categoryId, period }) {

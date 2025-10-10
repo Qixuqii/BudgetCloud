@@ -8,6 +8,7 @@ import {
   setCategoryBudget,
   removeCategoryBudget,
   updateBudgetPeriod,
+  setCategoryBudgetWithReplacement,
 } from "../services/ledgers";
 import Tag from "../components/Tag";
 import CategoryManager from "../components/CategoryManager";
@@ -235,13 +236,54 @@ export default function EditBudget() {
         if (!newIds.has(cid)) deletes.push(cid);
       }
 
-      // Apply changes
+      // Apply changes with replacement where applicable
+      // 1) Compute per-category delta vs initial amounts
+      const newAmtMap = new Map(byCat);
+      for (const [cid, initAmt] of initialCatAmounts.entries()) {
+        if (!newAmtMap.has(cid)) newAmtMap.set(cid, 0);
+      }
+      const deltas = [];
+      for (const [cid, newAmt] of newAmtMap.entries()) {
+        const initAmt = Number(initialCatAmounts.get(cid) || 0);
+        const delta = Number(newAmt || 0) - initAmt;
+        if (delta !== 0) deltas.push({ cid, initAmt, newAmt: Number(newAmt || 0), delta });
+      }
+
+      const increases = deltas.filter(d => d.delta > 0).map(d => ({ ...d, need: d.delta }));
+      const decreases = deltas.filter(d => d.delta < 0).map(d => ({ ...d, avail: -d.delta }));
+
+      // Greedily build replacement sources for each increase from decreases
+      const updatedTargets = new Set();
+      for (const inc of increases) {
+        let remain = inc.need;
+        const sources = [];
+        for (const dec of decreases) {
+          if (remain <= 0) break;
+          if (dec.avail <= 0) continue;
+          const take = Math.min(dec.avail, remain);
+          if (take > 0) {
+            sources.push({ category_id: dec.cid, amount: take });
+            dec.avail -= take;
+            remain -= take;
+          }
+        }
+        if (sources.length > 0) {
+          // Atomic replacement for this target category
+          await setCategoryBudgetWithReplacement(ledgerId, inc.cid, inc.newAmt, period, sources);
+          updatedTargets.add(inc.cid);
+        }
+      }
+
+      // 2) Set remaining categories to their final amounts where not already covered
       const ops = [];
-      for (const [cid, amt] of byCat.entries())
-        ops.push(setCategoryBudget(ledgerId, cid, amt, period));
-      for (const cid of deletes)
-        ops.push(removeCategoryBudget(ledgerId, cid, period));
+      for (const [cid, amt] of byCat.entries()) {
+        if (!updatedTargets.has(cid)) ops.push(setCategoryBudget(ledgerId, cid, amt, period));
+      }
+      for (const cid of deletes) ops.push(removeCategoryBudget(ledgerId, cid, period));
       if (ops.length) await Promise.all(ops);
+
+      // Notify other views to refresh Budget Analysis immediately
+      try { window.dispatchEvent(new CustomEvent('budget-updated', { detail: { ledgerId, period } })); } catch {}
 
       await dispatch(loadLedgers());
       // Ensure global current ledger points to the edited one

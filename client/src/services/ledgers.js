@@ -37,6 +37,15 @@ export const leaveLedger = (id) =>
 export const setCategoryBudget = (ledgerId, categoryId, amount, period) =>
   http.put(`/ledgers/${ledgerId}/budgets/${categoryId}`, { amount }, { params: period ? { period } : undefined }).then(res => res.data);
 
+// Set budget with replacement from other categories (atomic on server)
+// sources: [{ category_id, amount }]
+export const setCategoryBudgetWithReplacement = (ledgerId, categoryId, amount, period, sources = []) =>
+  http.put(
+    `/ledgers/${ledgerId}/budgets/${categoryId}`,
+    { amount, replace_from: sources },
+    { params: period ? { period } : undefined }
+  ).then(res => res.data);
+
 export const removeCategoryBudget = (ledgerId, categoryId, period) =>
   http.delete(`/ledgers/${ledgerId}/budgets/${categoryId}`, { params: period ? { period } : undefined }).then(res => res.data);
 
@@ -56,8 +65,8 @@ export const fetchLedgerDetail = async (id, period) => {
 
   // 并发请求：基础信息、预算进度、AI 总结
   const [baseRes, budgetRes] = await Promise.all([
-    http.get(`/ledgers/${id}`),
-    http.get(`/ledgers/${id}/budgets`, { params: { period: p } }),
+    http.get(`/ledgers/${id}`, { params: { _ts: Date.now() } }),
+    http.get(`/ledgers/${id}/budgets`, { params: { period: p, _ts: Date.now() } }),
   ]);
 
   const base = baseRes.data || {};
