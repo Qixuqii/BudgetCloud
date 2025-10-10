@@ -8,7 +8,6 @@ export default defineConfig({
 	  host: '0.0.0.0',
 	  port: 80,
 	  strictPort: true,
-    allowedHosts: ['budget.y2ki.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:8800',
